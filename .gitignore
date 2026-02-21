@@ -1,5 +1,6 @@
 # ─── Phase Reports (private — never push to git) ───────────────────────────
 docs/
+MYSHOP_MASTER_PROMPT.md
 
 # ─── Environment & Secrets ──────────────────────────────────────────────────
 .env
