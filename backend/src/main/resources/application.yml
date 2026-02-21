@@ -1,0 +1,153 @@
+# ============================================================================
+# application.yml — Main Spring Boot configuration
+#
+# HOW SPRING PROFILES WORK:
+# Spring loads application.yml first, then overlays application-{profile}.yml.
+# So values here are DEFAULTS. Profile-specific files override them.
+#
+# Set active profile via: SPRING_PROFILES_ACTIVE=dev (or prod)
+# In Docker compose, we pass this as an environment variable.
+# ============================================================================
+
+spring:
+  application:
+    name: myshop-backend  # Used in logs, actuator info endpoint
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}  # Default to dev if not set
+
+  # ── Database: MongoDB (Phase 3) ────────────────────────────────────────────
+  data:
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/myshop}
+
+  # ── Database: PostgreSQL via JPA/Hibernate ─────────────────────────────────
+  datasource:
+    # Why use host.docker.internal for local dev? Explained in docker-compose.yml
+    url: jdbc:postgresql://${DB_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:myshop}
+    username: ${POSTGRES_USER:myshop_user}
+    password: ${POSTGRES_PASSWORD:myshop_pass}
+    driver-class-name: org.postgresql.Driver
+    # HikariCP — Spring Boot's default connection pool (very fast)
+    hikari:
+      # How many DB connections to maintain open and ready
+      maximum-pool-size: 10
+      # Minimum idle connections in the pool
+      minimum-idle: 3
+      # Wait up to 30s for a connection before throwing an exception
+      connection-timeout: 30000
+      # Max lifetime of a connection (prevents stale connections)
+      max-lifetime: 1800000
+      # Connection pool name for JMX/metrics monitoring
+      pool-name: myshop-hikari
+
+  # ── JPA / Hibernate ────────────────────────────────────────────────────────
+  jpa:
+    # CRITICAL: We use 'validate' (not 'create' or 'update').
+    # 'validate' tells Hibernate to check that DB schema matches entities
+    # but NOT auto-modify the schema. Flyway manages schema changes.
+    # Why? 'create' drops and recreates tables on every restart (destroys data).
+    # 'update' makes changes silently (risky, hard to version control).
+    # 'validate' fails fast if code and schema are out of sync — safe.
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        # Print the SQL Hibernate generates (helpful for learning and debugging).
+        # Disable in production (verbose, slow).
+        show_sql: false
+        format_sql: true
+        # Timezone: store all timestamps in UTC — never store with local timezone.
+        # Always show_sql should be disabled in prod:
+        jdbc:
+          time_zone: UTC
+
+  # ── Flyway: Database Migrations ────────────────────────────────────────────
+  flyway:
+    # Location in classpath where Flyway looks for migration scripts.
+    # Files must be named: V{version}__{description}.sql
+    # e.g., V1__init_schema.sql, V2__seed_data.sql
+    locations: classpath:db/migration
+    # Create the flyway_schema_history table if it doesn't exist
+    baseline-on-migrate: false
+    # Validate migration checksums — fails if you modify an already-applied migration.
+    # This is a SAFETY NET to enforce immutable migrations.
+    validate-on-migrate: true
+    enabled: true
+
+  # ── Jackson: JSON Serialization ────────────────────────────────────────────
+  jackson:
+    # Serialize dates as ISO 8601 strings ("2024-01-01T10:00:00Z")
+    # not as Unix timestamps (1704100800000). Strings are human-readable.
+    serialization:
+      write-dates-as-timestamps: false
+    # Use camelCase (default) for JSON field names
+    property-naming-strategy: LOWER_CAMEL_CASE
+    # Don't fail if the JSON contains unknown fields — backwards compatibility
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: NON_NULL
+
+# ── Spring Boot Actuator ──────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose only these endpoints over HTTP.
+        # Never expose 'env', 'beans', 'mappings' in production (security risk).
+        include: health, info
+      base-path: /actuator
+  health:
+    mongo:
+      enabled: false
+  endpoint:
+    health:
+      # Show full health details (DB, Redis, Kafka connectivity).
+      # In production, this would be 'never' or 'when-authorized'.
+      show-details: never
+  info:
+    env:
+      enabled: true
+
+# ── Application Info (shown at /actuator/info) ───────────────────────────────
+info:
+  app:
+    name: myShop Backend
+    version: 0.0.1-SNAPSHOT
+    description: E-commerce platform REST API
+    phase: Phase 0 — Project Scaffold
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.myshop: DEBUG  # Our code at DEBUG level so we see everything during development
+    # Hibernate SQL logging (can override per environment)
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql: WARN
+    # Spring Security — DEBUG shows filter chain execution
+    org.springframework.security: WARN
+  # MDC pattern: include requestId in every log line
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [requestId=%X{requestId}] %-5level %logger{36} - %msg%n"
+
+# ── JWT Configuration ─────────────────────────────────────────────────────────
+jwt:
+  # Secret key for signing JWT tokens. MUST be at least 256 bits (32 characters).
+  # In production: generate with: openssl rand -hex 32
+  secret: ${JWT_SECRET}
+  # Access token TTL: 15 minutes (900,000 ms)
+  expiration-ms: ${JWT_EXPIRY_MS:900000}
+  # Refresh token TTL: 7 days (604,800,000 ms)
+  refresh-expiration-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}
+
+# ── Springdoc / Swagger UI ───────────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    # Expand operations by default for easier browsing
+    doc-expansion: none
+    # Show request duration in UI
+    display-request-duration: true
+  api-docs:
+    path: /v3/api-docs

@@ -1,0 +1,23 @@
+# docker-compose.override.yml — Dev port overrides
+#
+# docker-compose.override.yml is AUTOMATICALLY picked up by Docker Compose
+# when you run: docker compose up
+# It MERGES with docker-compose.yml — no need to specify it explicitly.
+# Production: docker compose -f docker-compose.yml up (doesn't pick up override)
+#
+# Used for: exposing additional debug ports, local path mounts for hot-reload
+
+services:
+  postgres:
+    # Expose PostgreSQL port directly for local DB tools (DBeaver, psql, etc.)
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    # Override JVM flags for development — remote debugging enabled
+    # Connect IntelliJ remote debugger to localhost:5005
+    environment:
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+      - "5005:5005" # Remote debug port

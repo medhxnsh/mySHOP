@@ -1,0 +1,28 @@
+# application-dev.yml — Development profile overrides
+#
+# Values here OVERRIDE application.yml when SPRING_PROFILES_ACTIVE=dev
+# Dev-specific: verbose logging, show SQL, more permissive settings
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+
+logging:
+  level:
+    com.myshop: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.security: DEBUG
+    org.flywaydb: DEBUG
+
+# Allow actuator endpoints in dev for easier debugging
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, loggers, flyway
+  endpoint:
+    health:
+      show-details: always

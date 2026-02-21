@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-[#0a0a0a] text-white font-sans antialiased;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#2563eb] text-white font-medium px-4 py-2 rounded-md transition-colors hover:bg-blue-700;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-gray-800 text-gray-300 font-medium px-4 py-2 rounded-md transition-colors hover:border-gray-600 hover:text-white;
+  }
+}

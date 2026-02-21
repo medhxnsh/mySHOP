@@ -1,0 +1,34 @@
+# application-prod.yml — Production profile overrides
+#
+# Values here OVERRIDE application.yml when SPRING_PROFILES_ACTIVE=prod
+# Production: minimal logging, strict security, virtual threads enabled
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        show_sql: false
+
+  # Virtual Threads (Java 21 / Project Loom) — Phase 7 activation
+  # Every HTTP request will be handled on a virtual thread instead of
+  # a platform thread. Virtual threads are lightweight (kb vs mb) enabling
+  # millions of concurrent I/O-bound operations. No more thread pool sizing.
+  threads:
+    virtual:
+      enabled: true
+
+logging:
+  level:
+    root: WARN
+    com.myshop: INFO
+    org.springframework.security: WARN
+
+# Only expose health and prometheus in production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: never

@@ -1,0 +1,25 @@
+# Test application configuration — Testcontainers will override DB URL automatically
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/myshop_test
+  datasource:
+    # Testcontainers replaces this URL at runtime with the actual container URL
+    url: jdbc:tc:postgresql:16:///myshop_test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+# JWT: use short-lived tokens so expiry tests work without long waits
+jwt:
+  secret: test-secret-key-must-be-exactly-32-chars
+  expiration-ms: 900000      # 15 minutes
+  refresh-expiration-ms: 604800000
+
+logging:
+  level:
+    com.myshop: DEBUG
+    org.testcontainers: INFO

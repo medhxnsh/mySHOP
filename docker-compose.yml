@@ -1,0 +1,147 @@
+# =============================================================================
+# docker-compose.yml — myShop Development Environment
+#
+# Starts: PostgreSQL, Spring Boot backend, React frontend (Nginx)
+#
+# WHY DOCKER COMPOSE?
+# Every developer gets the exact same environment — no "works on my machine".
+# One command to spin up all services with correct networking and ordering.
+#
+# RUN WITH: docker compose up --build
+# STOP WITH: docker compose down
+# RESET DATA: docker compose down -v  (WARNING: deletes ALL database data)
+# =============================================================================
+
+# IMPORTANT: All secrets come from .env file (copy .env.example to .env first)
+# Never hardcode passwords in this file — it lives in git.
+
+services:
+
+  # ── MongoDB Database (Phase 3) ─────────────────────────────────────────────
+  myshop-mongo:
+    image: mongo:7
+    container_name: myshop-mongo
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-mongoadmin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-mongopassword}
+      - MONGO_INITDB_DATABASE=${MONGO_DB:-myshop}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - myshop-network
+    healthcheck:
+      test: echo "db.runCommand('ping').ok" | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PostgreSQL Database ────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine # Alpine = smaller image (~200MB vs ~400MB full)
+    container_name: myshop-postgres
+    restart: unless-stopped # Auto-restart if Docker daemon restarts
+    environment:
+      # PostgreSQL reads these to create the initial database
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Named volume: data persists across docker compose down/up
+      # WITHOUT this volume, ALL data is lost every time the container stops
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      # Map container port 5432 to host port (from .env)
+      # Format: "host_port:container_port"
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      # WHY HEALTHCHECK? Other services must wait until PostgreSQL is READY
+      # to accept connections, not just running. Without this, Spring might
+      # try to connect before PostgreSQL is initialized → connection refused.
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s # Check every 10 seconds
+      timeout: 5s # Fail if no response within 5 seconds
+      retries: 5 # Mark unhealthy after 5 consecutive failures
+      start_period: 30s # Grace period on startup — don't check for 30s
+    networks:
+      - myshop-network
+
+  # ── Spring Boot Backend ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: myshop-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        # CRITICAL: Only start after postgres is HEALTHY (healthcheck passed)
+        # Not just "started". Without this, Spring starts before PostgreSQL
+        # is ready → HikariCP connection errors on startup.
+        condition: service_healthy
+    environment:
+      # Spring profile — use dev settings (verbose logging, show SQL)
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+
+      # Database connection — uses 'postgres' (container name = hostname in Docker network)
+      # WHY 'postgres' not 'localhost'? Inside Docker network, containers reach
+      # each other by SERVICE NAME, not localhost. Localhost = the backend container itself.
+      DB_HOST: postgres
+      POSTGRES_PORT: 5432 # Internal Docker port (not the host-exposed port)
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # JWT config
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRY_MS: ${JWT_EXPIRY_MS}
+      JWT_REFRESH_EXPIRY_MS: ${JWT_REFRESH_EXPIRY_MS}
+      SPRING_DATA_MONGODB_URI: mongodb://myshop-mongo:27017/myshop
+    ports:
+      - "${BACKEND_PORT}:8080" # Spring Boot runs on 8080 inside container
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s # Spring Boot startup takes ~30-60s
+    networks:
+      - myshop-network
+
+  # ── React Frontend (Nginx) ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: myshop-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT}:80" # Nginx serves on port 80 inside container
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - myshop-network
+
+# ── Named Volumes ──────────────────────────────────────────────────────────
+# Docker manages these. Data persists until you explicitly delete volumes.
+# `docker volume ls` to see, `docker volume rm myshop_postgres_data` to delete.
+volumes:
+  postgres_data:
+    name: myshop_postgres_data
+  mongo_data:
+    name: myshop_mongo_data
+
+# ── Network ────────────────────────────────────────────────────────────────
+# All services share one network for inter-container communication.
+# Services find each other by name (e.g., postgres, backend).
+networks:
+  myshop-network:
+    name: myshop-network
+    driver: bridge
