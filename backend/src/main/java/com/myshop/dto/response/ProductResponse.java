@@ -8,9 +8,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
 /** ProductResponse — safe read-only view of a Product for API responses. */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ProductResponse {
 

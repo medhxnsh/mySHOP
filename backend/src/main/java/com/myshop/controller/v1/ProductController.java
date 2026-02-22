@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -43,57 +44,64 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProductController {
 
-    private final ProductService productService;
+        private final ProductService productService;
+        private final org.springframework.cache.CacheManager cacheManager;
+        private final StringRedisTemplate redisTemplate;
 
-    @Operation(summary = "Get all active products (paginated, filterable)")
-    @GetMapping
-    public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> getAll(
-            @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = AppConstants.DEFAULT_PAGE_NUMBER) int page,
+        @Operation(summary = "Get all active products (paginated, filterable)")
+        @GetMapping
+        public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> getAll(
+                        @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = AppConstants.DEFAULT_PAGE_NUMBER) int page,
 
-            @Parameter(description = "Items per page") @RequestParam(defaultValue = AppConstants.DEFAULT_PAGE_SIZE_STR) int size,
+                        @Parameter(description = "Items per page") @RequestParam(defaultValue = AppConstants.DEFAULT_PAGE_SIZE_STR) int size,
 
-            @RequestParam(required = false) UUID categoryId,
-            @RequestParam(required = false) BigDecimal minPrice,
-            @RequestParam(required = false) BigDecimal maxPrice,
+                        @RequestParam(required = false) UUID categoryId,
+                        @RequestParam(required = false) BigDecimal minPrice,
+                        @RequestParam(required = false) BigDecimal maxPrice,
 
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
+                        @RequestParam(defaultValue = "createdAt") String sortBy,
+                        @RequestParam(defaultValue = "desc") String sortDir) {
 
-        PagedResponse<ProductResponse> response = productService.getAll(
-                page, size, categoryId, minPrice, maxPrice, sortBy, sortDir);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
+                PagedResponse<ProductResponse> response = productService.getAll(
+                                page, size, categoryId, minPrice, maxPrice, sortBy, sortDir);
 
-    @Operation(summary = "Get a product by ID")
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getById(id)));
-    }
+                return ResponseEntity.ok()
+                                .body(ApiResponse.success(response));
+        }
 
-    @Operation(summary = "Create a new product (ADMIN only)", security = @SecurityRequirement(name = "bearerAuth"))
-    @PostMapping
-    public ResponseEntity<ApiResponse<ProductResponse>> create(
-            @Valid @RequestBody CreateProductRequest request) {
+        @Operation(summary = "Get a product by ID")
+        @GetMapping("/{id}")
+        public ResponseEntity<ApiResponse<ProductResponse>> getById(@PathVariable UUID id) {
+                boolean isHit = Boolean.TRUE.equals(redisTemplate.hasKey("products::" + id));
+                return ResponseEntity.ok()
+                                .header("X-Cache", isHit ? "HIT" : "MISS")
+                                .body(ApiResponse.success(productService.getById(id)));
+        }
 
-        ProductResponse product = productService.create(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(product));
-    }
+        @Operation(summary = "Create a new product (ADMIN only)", security = @SecurityRequirement(name = "bearerAuth"))
+        @PostMapping
+        public ResponseEntity<ApiResponse<ProductResponse>> create(
+                        @Valid @RequestBody CreateProductRequest request) {
 
-    @Operation(summary = "Update a product (ADMIN only)", security = @SecurityRequirement(name = "bearerAuth"))
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> update(
-            @PathVariable UUID id,
-            @Valid @RequestBody UpdateProductRequest request) {
+                ProductResponse product = productService.create(request);
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.success(product));
+        }
 
-        return ResponseEntity.ok(ApiResponse.success(productService.update(id, request)));
-    }
+        @Operation(summary = "Update a product (ADMIN only)", security = @SecurityRequirement(name = "bearerAuth"))
+        @PutMapping("/{id}")
+        public ResponseEntity<ApiResponse<ProductResponse>> update(
+                        @PathVariable UUID id,
+                        @Valid @RequestBody UpdateProductRequest request) {
 
-    @Operation(summary = "Soft-delete a product (ADMIN only)", security = @SecurityRequirement(name = "bearerAuth"))
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
-        productService.delete(id);
-        // 204 No Content — delete succeeded, nothing to return
-        return ResponseEntity.noContent().build();
-    }
+                return ResponseEntity.ok(ApiResponse.success(productService.update(id, request)));
+        }
+
+        @Operation(summary = "Soft-delete a product (ADMIN only)", security = @SecurityRequirement(name = "bearerAuth"))
+        @DeleteMapping("/{id}")
+        public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
+                productService.delete(id);
+                // 204 No Content — delete succeeded, nothing to return
+                return ResponseEntity.noContent().build();
+        }
 }

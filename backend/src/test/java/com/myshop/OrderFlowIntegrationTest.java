@@ -78,10 +78,10 @@ class OrderFlowIntegrationTest {
                                 .build());
                 cartRepository.save(cart);
 
-                OrderRequest request = new OrderRequest(Collections.singletonMap("address", "123 Integration Lane"));
+                OrderRequest req = new OrderRequest(Collections.singletonMap("city", "TestCity"), "COD");
 
                 // 2. Act
-                orderService.placeOrder(testUser.getEmail(), request);
+                orderService.placeOrder(testUser.getEmail(), req);
 
                 // 3. Assert
                 // A) Verify cart is empty

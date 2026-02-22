@@ -13,7 +13,7 @@ export default function Products() {
 
     useEffect(() => {
         setLoading(true)
-        axios.get(`http://localhost:8080/api/v1/products?page=${page}&size=12&sortBy=${sort}&sortDir=${sortDir}`)
+        axios.get(`/api/v1/products?page=${page}&size=12&sortBy=${sort}&sortDir=${sortDir}`)
             .then(res => {
                 setProducts(res.data.data.content)
                 setTotalPages(res.data.data.totalPages)

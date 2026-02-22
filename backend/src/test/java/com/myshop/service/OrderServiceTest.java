@@ -92,7 +92,7 @@ class OrderServiceTest {
         when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
         when(cartRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testCart));
 
-        OrderRequest request = new OrderRequest(Collections.singletonMap("street", "123 Main St"));
+        OrderRequest request = new OrderRequest(Map.of("street", "123 Main St"), "COD");
 
         // Act & Assert
         BusinessException ex = assertThrows(BusinessException.class, () -> {
@@ -112,7 +112,7 @@ class OrderServiceTest {
         when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
         when(cartRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testCart));
 
-        OrderRequest request = new OrderRequest(Collections.singletonMap("street", "123 Main St"));
+        OrderRequest request = new OrderRequest(Collections.singletonMap("street", "123 Main St"), "COD");
 
         // Act & Assert
         BusinessException ex = assertThrows(BusinessException.class, () -> {

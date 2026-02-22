@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -62,122 +63,127 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProductService {
 
-    private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
-    private final ProductMapper productMapper;
-    private final ActivityLogService activityLogService;
+        private final ProductRepository productRepository;
+        private final CategoryRepository categoryRepository;
+        private final ProductMapper productMapper;
+        private final ActivityLogService activityLogService;
 
-    @Transactional(readOnly = true)
-    public PagedResponse<ProductResponse> getAll(int page, int size,
-            UUID categoryId,
-            BigDecimal minPrice,
-            BigDecimal maxPrice,
-            String sortBy,
-            String sortDir) {
+        @Cacheable(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS_PAGED, key = "T(java.util.Objects).hash(#page, #size, #categoryId, #minPrice, #maxPrice, #sortBy, #sortDir)")
+        @Transactional(readOnly = true)
+        public PagedResponse<ProductResponse> getAll(int page, int size,
+                        UUID categoryId,
+                        BigDecimal minPrice,
+                        BigDecimal maxPrice,
+                        String sortBy,
+                        String sortDir) {
 
-        Sort sort = sortDir.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                Sort sort = sortDir.equalsIgnoreCase("asc")
+                                ? Sort.by(sortBy).ascending()
+                                : Sort.by(sortBy).descending();
 
-        Pageable pageable = PageRequest.of(page, size, sort);
+                Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<Product> productPage = productRepository.findActiveProducts(
-                categoryId, minPrice, maxPrice, pageable);
+                Page<Product> productPage = productRepository.findActiveProducts(
+                                categoryId, minPrice, maxPrice, pageable);
 
-        List<ProductResponse> content = productPage.getContent()
-                .stream()
-                .map(productMapper::toResponse)
-                .toList();
+                List<ProductResponse> content = productPage.getContent()
+                                .stream()
+                                .map(productMapper::toResponse)
+                                .toList();
 
-        return PagedResponse.of(productPage, content);
-    }
-
-    @Transactional(readOnly = true)
-    public ProductResponse getById(UUID id) {
-        Product product = productRepository.findById(id)
-                .filter(Product::isActive)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id.toString()));
-
-        // Async: log product view — won't block the HTTP response
-        String currentUser = SecurityUtils.getCurrentUserEmail().orElse("anonymous");
-
-        // TODO Phase 3: Verify async wiring. This runs in "analyticsTaskExecutor" and
-        // logs to console.
-        // In Phase 3, this will save a document to MongoDB.
-        activityLogService.logActivity(currentUser, "PRODUCT_VIEWED", "PRODUCT", id.toString());
-
-        return productMapper.toResponse(product);
-    }
-
-    @Transactional
-    public ProductResponse create(CreateProductRequest request) {
-        // Guard: SKU must be globally unique
-        if (productRepository.existsBySku(request.getSku())) {
-            throw new BusinessException(ErrorCode.SKU_ALREADY_EXISTS,
-                    "SKU already in use: " + request.getSku());
+                return PagedResponse.of(productPage, content);
         }
 
-        Product product = productMapper.toEntity(request);
+        @Cacheable(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS, key = "#id")
+        @Transactional(readOnly = true)
+        public ProductResponse getById(UUID id) {
+                Product product = productRepository.findById(id)
+                                .filter(Product::isActive)
+                                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id.toString()));
 
-        // Set category if provided
-        if (request.getCategoryId() != null) {
-            Category category = categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Category", "id", request.getCategoryId().toString()));
-            product.setCategory(category);
+                // Async: log product view — won't block the HTTP response
+                String currentUser = SecurityUtils.getCurrentUserEmail().orElse("anonymous");
+
+                // TODO Phase 3: Verify async wiring. This runs in "analyticsTaskExecutor" and
+                // logs to console.
+                // In Phase 3, this will save a document to MongoDB.
+                activityLogService.logActivity(currentUser, "PRODUCT_VIEWED", "PRODUCT", id.toString());
+
+                return productMapper.toResponse(product);
         }
 
-        product.setActive(true);
-        Product saved = productRepository.save(product);
-        log.info("Product created: {} (SKU: {})", saved.getName(), saved.getSku());
+        @org.springframework.cache.annotation.CacheEvict(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS_PAGED, allEntries = true)
+        @Transactional
+        public ProductResponse create(CreateProductRequest request) {
+                // Guard: SKU must be globally unique
+                if (productRepository.existsBySku(request.getSku())) {
+                        throw new BusinessException(ErrorCode.SKU_ALREADY_EXISTS,
+                                        "SKU already in use: " + request.getSku());
+                }
 
-        return productMapper.toResponse(saved);
-    }
+                Product product = productMapper.toEntity(request);
 
-    @Transactional
-    public ProductResponse update(UUID id, UpdateProductRequest request) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id.toString()));
+                // Set category if provided
+                if (request.getCategoryId() != null) {
+                        Category category = categoryRepository.findById(request.getCategoryId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category", "id", request.getCategoryId().toString()));
+                        product.setCategory(category);
+                }
 
-        // Check SKU uniqueness only if SKU is being changed
-        if (request.getSku() != null && !request.getSku().equals(product.getSku())) {
-            if (productRepository.existsBySku(request.getSku())) {
-                throw new BusinessException(ErrorCode.SKU_ALREADY_EXISTS,
-                        "SKU already in use: " + request.getSku());
-            }
+                product.setActive(true);
+                Product saved = productRepository.save(product);
+                log.info("Product created: {} (SKU: {})", saved.getName(), saved.getSku());
+
+                return productMapper.toResponse(saved);
         }
 
-        // PATCH: apply only non-null fields from request onto the entity
-        productMapper.updateEntity(product, request);
+        @org.springframework.cache.annotation.Caching(evict = {
+                        @org.springframework.cache.annotation.CacheEvict(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS, key = "#id"),
+                        @org.springframework.cache.annotation.CacheEvict(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS_PAGED, allEntries = true)
+        })
+        @Transactional
+        public ProductResponse update(UUID id, UpdateProductRequest request) {
+                Product product = productRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id.toString()));
 
-        // Update category if a new categoryId is provided
-        if (request.getCategoryId() != null) {
-            Category category = categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Category", "id", request.getCategoryId().toString()));
-            product.setCategory(category);
+                // Check SKU uniqueness only if SKU is being changed
+                if (request.getSku() != null && !request.getSku().equals(product.getSku())) {
+                        if (productRepository.existsBySku(request.getSku())) {
+                                throw new BusinessException(ErrorCode.SKU_ALREADY_EXISTS,
+                                                "SKU already in use: " + request.getSku());
+                        }
+                }
+
+                // PATCH: apply only non-null fields from request onto the entity
+                productMapper.updateEntity(product, request);
+
+                // Update category if a new categoryId is provided
+                if (request.getCategoryId() != null) {
+                        Category category = categoryRepository.findById(request.getCategoryId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Category", "id", request.getCategoryId().toString()));
+                        product.setCategory(category);
+                }
+
+                Product updated = productRepository.save(product);
+                log.info("Product updated: {}", updated.getId());
+
+                return productMapper.toResponse(updated);
         }
 
-        // No explicit save() call needed here!
-        // Why? product is a MANAGED entity (loaded within this @Transactional method).
-        // When the transaction commits, Hibernate detect changes (dirty-checking)
-        // and issues an UPDATE automatically. This is the "persistence context" at
-        // work.
-        // We save() anyway for explicitness and to return the updated version.
-        Product updated = productRepository.save(product);
-        log.info("Product updated: {}", updated.getId());
+        @org.springframework.cache.annotation.Caching(evict = {
+                        @org.springframework.cache.annotation.CacheEvict(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS, key = "#id"),
+                        @org.springframework.cache.annotation.CacheEvict(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS_PAGED, allEntries = true)
+        })
+        @Transactional
+        public void delete(UUID id) {
+                Product product = productRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id.toString()));
 
-        return productMapper.toResponse(updated);
-    }
-
-    @Transactional
-    public void delete(UUID id) {
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id.toString()));
-
-        // Soft delete — set isActive=false, don't DELETE the row
-        product.setActive(false);
-        productRepository.save(product);
-        log.info("Product soft-deleted: {}", id);
-    }
+                // Soft delete — set isActive=false, don't DELETE the row
+                product.setActive(false);
+                productRepository.save(product);
+                log.info("Product soft-deleted: {}", id);
+        }
 }

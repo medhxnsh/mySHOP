@@ -54,138 +54,153 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    /**
-     * 404 Not Found — Resource doesn't exist.
-     * Triggered by: throw new
-     * ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, id)
-     */
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException ex) {
-        log.warn("Resource not found: {} (identifier: {})",
-                ex.getErrorCode(), ex.getIdentifier());
+        /**
+         * 404 Not Found — Resource doesn't exist.
+         * Triggered by: throw new
+         * ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND, id)
+         */
+        @ExceptionHandler(ResourceNotFoundException.class)
+        public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException ex) {
+                log.warn("Resource not found: {} (identifier: {})",
+                                ex.getErrorCode(), ex.getIdentifier());
 
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(
-                        ex.getErrorCode().name(),
-                        ex.getMessage()));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.NOT_FOUND)
+                                .body(ApiResponse.error(
+                                                ex.getErrorCode().name(),
+                                                ex.getMessage()));
+        }
 
-    /**
-     * 422 Unprocessable Entity — Business rule violated.
-     * Triggered by: throw new
-     * BusinessException(ErrorCode.ORDER_CANNOT_BE_CANCELLED)
-     *
-     * WHY 422 not 400?
-     * 400 Bad Request = syntactically malformed request (missing fields, wrong
-     * type).
-     * 422 Unprocessable Entity = request is syntactically valid but semantically
-     * wrong.
-     * The cart is empty isn't a badly formatted request — it's a business rule
-     * violation.
-     */
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
-        log.warn("Business rule violation: {}", ex.getErrorCode());
+        /**
+         * 422 Unprocessable Entity — Business rule violated.
+         * Triggered by: throw new
+         * BusinessException(ErrorCode.ORDER_CANNOT_BE_CANCELLED)
+         *
+         * WHY 422 not 400?
+         * 400 Bad Request = syntactically malformed request (missing fields, wrong
+         * type).
+         * 422 Unprocessable Entity = request is syntactically valid but semantically
+         * wrong.
+         * The cart is empty isn't a badly formatted request — it's a business rule
+         * violation.
+         */
+        @ExceptionHandler(BusinessException.class)
+        public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
+                log.warn("Business rule violation: {}", ex.getErrorCode());
 
-        return ResponseEntity
-                .status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(ApiResponse.error(
-                        ex.getErrorCode().name(),
-                        ex.getMessage()));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.UNPROCESSABLE_ENTITY)
+                                .body(ApiResponse.error(
+                                                ex.getErrorCode().name(),
+                                                ex.getMessage()));
+        }
 
-    /**
-     * 422 Unprocessable Entity — Insufficient stock during order placement.
-     * Returns detailed info: which product, how much was requested, how much
-     * available.
-     */
-    @ExceptionHandler(InsufficientStockException.class)
-    public ResponseEntity<ApiResponse<Void>> handleInsufficientStock(InsufficientStockException ex) {
-        log.warn("Insufficient stock: product={}, requested={}, available={}",
-                ex.getProductId(), ex.getRequested(), ex.getAvailable());
+        /**
+         * 422 Unprocessable Entity — Insufficient stock during order placement.
+         * Returns detailed info: which product, how much was requested, how much
+         * available.
+         */
+        @ExceptionHandler(InsufficientStockException.class)
+        public ResponseEntity<ApiResponse<Void>> handleInsufficientStock(InsufficientStockException ex) {
+                log.warn("Insufficient stock: product={}, requested={}, available={}",
+                                ex.getProductId(), ex.getRequested(), ex.getAvailable());
 
-        return ResponseEntity
-                .status(HttpStatus.UNPROCESSABLE_ENTITY)
-                .body(ApiResponse.error(
-                        ex.getErrorCode().name(),
-                        ex.getMessage()));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.UNPROCESSABLE_ENTITY)
+                                .body(ApiResponse.error(
+                                                ex.getErrorCode().name(),
+                                                ex.getMessage()));
+        }
 
-    /**
-     * 400 Bad Request — @Valid annotation on @RequestBody failed.
-     *
-     * HOW BEAN VALIDATION WORKS:
-     * 1. Controller method has @Valid @RequestBody SomeRequest req
-     * 2. Spring calls Hibernate Validator on the request object
-     * 3. If any @NotNull, @Size, @Email etc. constraint fails, Spring throws
-     * MethodArgumentNotValidException before the controller method even runs
-     * 4. We catch it here and return all field errors in a structured list
-     */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidationErrors(
-            MethodArgumentNotValidException ex) {
+        /**
+         * 400 Bad Request — @Valid annotation on @RequestBody failed.
+         *
+         * HOW BEAN VALIDATION WORKS:
+         * 1. Controller method has @Valid @RequestBody SomeRequest req
+         * 2. Spring calls Hibernate Validator on the request object
+         * 3. If any @NotNull, @Size, @Email etc. constraint fails, Spring throws
+         * MethodArgumentNotValidException before the controller method even runs
+         * 4. We catch it here and return all field errors in a structured list
+         */
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ResponseEntity<ApiResponse<Void>> handleValidationErrors(
+                        MethodArgumentNotValidException ex) {
 
-        List<ApiResponse.FieldError> fieldErrors = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(fieldError -> ApiResponse.FieldError.builder()
-                        .field(fieldError.getField())
-                        .message(fieldError.getDefaultMessage())
-                        .build())
-                .collect(Collectors.toList());
+                List<ApiResponse.FieldError> fieldErrors = ex.getBindingResult()
+                                .getFieldErrors()
+                                .stream()
+                                .map(fieldError -> ApiResponse.FieldError.builder()
+                                                .field(fieldError.getField())
+                                                .message(fieldError.getDefaultMessage())
+                                                .build())
+                                .collect(Collectors.toList());
 
-        log.warn("Validation failed: {} field errors", fieldErrors.size());
+                log.warn("Validation failed: {} field errors", fieldErrors.size());
 
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.validationError(
-                        ErrorCode.VALIDATION_FAILED.name(),
-                        "Request validation failed. Check the 'details' field for specifics.",
-                        fieldErrors));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.BAD_REQUEST)
+                                .body(ApiResponse.validationError(
+                                                ErrorCode.VALIDATION_FAILED.name(),
+                                                "Request validation failed. Check the 'details' field for specifics.",
+                                                fieldErrors));
+        }
 
-    /**
-     * 403 Forbidden — User is authenticated but lacks permission.
-     * Triggered by: @PreAuthorize("hasRole('ADMIN')") when user is not an admin.
-     *
-     * WHY HANDLE AccessDeniedException SEPARATELY?
-     * Spring Security throws AccessDeniedException, which if uncaught would
-     * return a plain 403 HTML error page — not our JSON envelope format.
-     * We catch it here to return proper JSON.
-     */
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
-        log.warn("Access denied: {}", ex.getMessage());
+        /**
+         * 403 Forbidden — User is authenticated but lacks permission.
+         * Triggered by: @PreAuthorize("hasRole('ADMIN')") when user is not an admin.
+         *
+         * WHY HANDLE AccessDeniedException SEPARATELY?
+         * Spring Security throws AccessDeniedException, which if uncaught would
+         * return a plain 403 HTML error page — not our JSON envelope format.
+         * We catch it here to return proper JSON.
+         */
+        @ExceptionHandler(AccessDeniedException.class)
+        public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+                log.warn("Access denied: {}", ex.getMessage());
 
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(ApiResponse.error(
-                        ErrorCode.ACCESS_DENIED.name(),
-                        ErrorCode.ACCESS_DENIED.getDefaultMessage()));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.FORBIDDEN)
+                                .body(ApiResponse.error(
+                                                ErrorCode.ACCESS_DENIED.name(),
+                                                ErrorCode.ACCESS_DENIED.getDefaultMessage()));
+        }
 
-    /**
-     * 500 Internal Server Error — Catch-all for unexpected exceptions.
-     *
-     * WHY LOG AT ERROR LEVEL?
-     * This is an unhandled exception — something unexpected broke.
-     * log.error() should alert on-call engineers. All other handlers
-     * use log.warn() because they're expected/known scenarios.
-     *
-     * WHY HIDE THE CAUSE IN THE RESPONSE?
-     * Stack traces contain internal details (file names, class structure)
-     * that could help an attacker. Always return a generic message.
-     * The REAL cause is in the server logs with the requestId correlation.
-     */
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
-        log.error("Unexpected error occurred", ex);
+        /**
+         * 401 Unauthorized — Bad credentials during login.
+         */
+        @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+        public ResponseEntity<ApiResponse<Void>> handleBadCredentials(
+                        org.springframework.security.authentication.BadCredentialsException ex) {
+                log.warn("Bad credentials: {}", ex.getMessage());
 
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error(
-                        ErrorCode.INTERNAL_SERVER_ERROR.name(),
-                        ErrorCode.INTERNAL_SERVER_ERROR.getDefaultMessage()));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.UNAUTHORIZED)
+                                .body(ApiResponse.error(
+                                                ErrorCode.UNAUTHORIZED.name(),
+                                                "Invalid email or password"));
+        }
+
+        /**
+         * 500 Internal Server Error — Catch-all for unexpected exceptions.
+         *
+         * WHY LOG AT ERROR LEVEL?
+         * This is an unhandled exception — something unexpected broke.
+         * log.error() should alert on-call engineers. All other handlers
+         * use log.warn() because they're expected/known scenarios.
+         *
+         * WHY HIDE THE CAUSE IN THE RESPONSE?
+         * Stack traces contain internal details (file names, class structure)
+         * that could help an attacker. Always return a generic message.
+         * The REAL cause is in the server logs with the requestId correlation.
+         */
+        @ExceptionHandler(Exception.class)
+        public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
+                log.error("Unexpected error occurred", ex);
+
+                return ResponseEntity
+                                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .body(ApiResponse.error(
+                                                ErrorCode.INTERNAL_SERVER_ERROR.name(),
+                                                ErrorCode.INTERNAL_SERVER_ERROR.getDefaultMessage()));
+        }
 }

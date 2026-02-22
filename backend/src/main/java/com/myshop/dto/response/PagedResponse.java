@@ -5,6 +5,9 @@ import lombok.Data;
 
 import java.util.List;
 
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
 /**
  * PagedResponse<T> — generic wrapper for paginated API responses.
  *
@@ -22,6 +25,8 @@ import java.util.List;
  */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PagedResponse<T> {
 
     private List<T> content;

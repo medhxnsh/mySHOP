@@ -2,7 +2,6 @@ package com.myshop.controller.v1;
 
 import com.myshop.dto.request.LoginRequest;
 import com.myshop.dto.request.RegisterRequest;
-import com.myshop.dto.request.TokenRefreshRequest;
 import com.myshop.dto.response.ApiResponse;
 import com.myshop.dto.response.AuthResponse;
 import com.myshop.dto.response.UserResponse;
@@ -21,6 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 
 /**
  * AuthController — handles registration, login, token refresh, and current user
@@ -53,14 +55,27 @@ public class AuthController {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
 
+    private ResponseCookie createRefreshTokenCookie(String refreshToken) {
+        return ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .secure(false) // false for localhost HTTP, should be true in HTTPS environments
+                .sameSite("Strict")
+                .path("/api/v1/auth/refresh") // Cookie only sent to refresh endpoint to minimize attack surface
+                .maxAge(7 * 24 * 60 * 60) // 7 days
+                .build();
+    }
+
     @Operation(summary = "Register a new user account")
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
 
         AuthResponse authResponse = authService.register(request);
+        ResponseCookie cookie = createRefreshTokenCookie(authResponse.getRefreshToken());
+
         // 201 Created — a new resource (user) was created
         return ResponseEntity.status(HttpStatus.CREATED)
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(ApiResponse.success(authResponse));
     }
 
@@ -70,17 +85,25 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request) {
 
         AuthResponse authResponse = authService.login(request);
+        ResponseCookie cookie = createRefreshTokenCookie(authResponse.getRefreshToken());
+
         // 200 OK — authentication is an action, not resource creation
-        return ResponseEntity.ok(ApiResponse.success(authResponse));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(ApiResponse.success(authResponse));
     }
 
-    @Operation(summary = "Refresh access token using a refresh token")
+    @Operation(summary = "Refresh access token using a refresh token from strictly pathed HttpOnly cookie")
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
-            @Valid @RequestBody TokenRefreshRequest request) {
+            @CookieValue(name = "refreshToken", required = true) String refreshToken) {
 
-        AuthResponse authResponse = authService.refreshToken(request);
-        return ResponseEntity.ok(ApiResponse.success(authResponse));
+        AuthResponse authResponse = authService.refreshToken(refreshToken);
+        ResponseCookie cookie = createRefreshTokenCookie(authResponse.getRefreshToken());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(ApiResponse.success(authResponse));
     }
 
     @Operation(summary = "Get currently authenticated user", security = @SecurityRequirement(name = "bearerAuth"))
@@ -95,5 +118,28 @@ public class AuthController {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "User not found"));
 
         return ResponseEntity.ok(ApiResponse.success(userMapper.toResponse(user)));
+    }
+
+    @Operation(summary = "Logout user and invalidate refresh token")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken) {
+
+        if (refreshToken != null) {
+            authService.logout(refreshToken);
+        }
+
+        // Clear the cookie
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(false) // false for localhost HTTP
+                .sameSite("Strict")
+                .path("/api/v1/auth/refresh")
+                .maxAge(0) // strictly expires cookie
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(ApiResponse.success(null));
     }
 }

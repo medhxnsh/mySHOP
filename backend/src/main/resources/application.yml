@@ -21,6 +21,27 @@ spring:
     mongodb:
       uri: ${SPRING_DATA_MONGODB_URI:mongodb://localhost:27017/myshop}
 
+    # ── Database: Redis (Phase 4) ────────────────────────────────────────────
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redispassword}
+      # Redisson handles its own connection pool by default when auto-configured, 
+      # but Spring Data Redis Lettuce pool config can also be provided if used separately.
+
+  # ── Kafka (Phase 5) ─────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "com.myshop.*"
+
   # ── Database: PostgreSQL via JPA/Hibernate ─────────────────────────────────
   datasource:
     # Why use host.docker.internal for local dev? Explained in docker-compose.yml

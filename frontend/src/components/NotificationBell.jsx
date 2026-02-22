@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell } from 'lucide-react';
 import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
+import useAuthStore from '../store/authStore';
 
 export default function NotificationBell() {
     const [notifications, setNotifications] = useState([]);
@@ -12,11 +14,25 @@ export default function NotificationBell() {
     const fetchNotifications = async () => {
         if (!token) return;
         try {
-            const res = await axios.get('http://localhost:8080/api/v1/notifications', {
+            const res = await axios.get('/api/v1/notifications', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.data?.success) {
-                setNotifications(res.data.data.content || []);
+                const newNotifs = res.data.data.content || [];
+
+                // Check if there's a new notification we haven't seen in state yet
+                setNotifications(prev => {
+                    if (prev.length > 0 && newNotifs.length > 0) {
+                        const prevLatestId = prev[0]?.id;
+                        const currLatestId = newNotifs[0]?.id;
+
+                        // Show toast if a new unread arrives
+                        if (prevLatestId !== currLatestId && !newNotifs[0].isRead) {
+                            toast.success(`New Notification: ${newNotifs[0].title}`);
+                        }
+                    }
+                    return newNotifs;
+                });
             }
         } catch (err) {
             console.error('Failed to fetch notifications', err);
@@ -25,8 +41,8 @@ export default function NotificationBell() {
 
     useEffect(() => {
         fetchNotifications();
-        // Optional: poll every 30s
-        const interval = setInterval(fetchNotifications, 30000);
+        // Polling every 15s for Phase 5
+        const interval = setInterval(fetchNotifications, 15000);
         return () => clearInterval(interval);
     }, [token]);
 
@@ -43,7 +59,7 @@ export default function NotificationBell() {
 
     const markAllAsRead = async () => {
         try {
-            await axios.put('http://localhost:8080/api/v1/notifications/read-all', {}, {
+            await axios.put('/api/v1/notifications/read-all', {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             // instantly update UI
@@ -61,6 +77,7 @@ export default function NotificationBell() {
 
     return (
         <div className="relative" ref={dropdownRef}>
+            <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="relative p-2 text-gray-300 hover:text-white transition-colors focus:outline-none"

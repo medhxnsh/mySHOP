@@ -4,5 +4,6 @@ import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
 public record OrderRequest(
-        @NotNull(message = "Shipping address is required") Map<String, String> shippingAddress) {
+                @NotNull(message = "Shipping address is required") Map<String, String> shippingAddress,
+                @NotNull(message = "Payment method is required") String paymentMethod) {
 }

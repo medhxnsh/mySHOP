@@ -14,4 +14,7 @@ public interface NotificationRepository extends MongoRepository<Notification, St
     Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
     long countByUserIdAndIsReadFalse(UUID userId);
+
+    @org.springframework.data.mongodb.repository.Query(value = "{ 'metadata.orderId': ?0, 'type': ?1 }", exists = true)
+    boolean existsByMetadataOrderIdAndType(String orderId, String type);
 }

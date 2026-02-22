@@ -3,10 +3,10 @@ import { FileText, Activity, Server, Monitor } from 'lucide-react'
 const phases = [
     { phase: 0, name: 'Project Scaffold', status: 'Complete', desc: 'Spring Boot skeleton, PostgreSQL schema, Docker, React frontend' },
     { phase: 1, name: 'Products & Auth', status: 'Complete', desc: 'JWT authentication, product catalog, JPA entities, MapStruct, @Async' },
-    { phase: 2, name: 'Orders & Transactions', status: 'Pending', desc: 'Shopping cart, order placement, @Transactional, CompletableFuture' },
-    { phase: 3, name: 'MongoDB: Reviews', status: 'Pending', desc: 'Polyglot persistence, document model, TTL indexes' },
-    { phase: 4, name: 'Redis: Caching', status: 'Pending', desc: 'Cache-aside, rate limiting, distributed locks' },
-    { phase: 5, name: 'Kafka: Events', status: 'Pending', desc: 'KRaft mode, event-driven, dead letter topics' },
+    { phase: 2, name: 'Orders & Transactions', status: 'Complete', desc: 'Shopping cart, order placement, @Transactional, CompletableFuture' },
+    { phase: 3, name: 'MongoDB: Reviews', status: 'Complete', desc: 'Polyglot persistence, document model, TTL indexes' },
+    { phase: 4, name: 'Redis: Caching', status: 'Complete', desc: 'Cache-aside, rate limiting, distributed locks' },
+    { phase: 5, name: 'Kafka: Events', status: 'Complete', desc: 'KRaft mode, event-driven, dead letter topics' },
     { phase: 6, name: 'Elasticsearch', status: 'Pending', desc: 'Full-text search, fuzzy matching, faceted filters' },
     { phase: 7, name: 'Production & Azure', status: 'Pending', desc: 'Observability, CI/CD, cloud deployment' },
 ]

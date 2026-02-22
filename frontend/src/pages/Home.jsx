@@ -17,7 +17,7 @@ export default function HomePage() {
 
     useEffect(() => {
         // Fetch featured products
-        axios.get('http://localhost:8080/api/v1/products?page=0&size=8')
+        axios.get('/api/v1/products?page=0&size=8')
             .then(res => {
                 setProducts(res.data.data.content)
                 setLoading(false)

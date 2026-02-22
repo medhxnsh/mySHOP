@@ -2,7 +2,6 @@ package com.myshop.service;
 
 import com.myshop.dto.request.LoginRequest;
 import com.myshop.dto.request.RegisterRequest;
-import com.myshop.dto.request.TokenRefreshRequest;
 import com.myshop.dto.response.AuthResponse;
 import com.myshop.exception.BusinessException;
 import com.myshop.exception.ErrorCode;
@@ -56,6 +55,7 @@ public class AuthService {
         private final AuthenticationManager authenticationManager;
         private final UserDetailsService userDetailsService;
         private final UserMapper userMapper;
+        private final org.redisson.api.RedissonClient redissonClient;
 
         @Transactional
         public AuthResponse register(RegisterRequest request) {
@@ -84,6 +84,8 @@ public class AuthService {
                 String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
                 String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getEmail());
 
+                storeRefreshTokenInRedis(savedUser.getEmail(), refreshToken);
+
                 return AuthResponse.builder()
                                 .accessToken(accessToken)
                                 .refreshToken(refreshToken)
@@ -106,8 +108,9 @@ public class AuthService {
 
                 UserDetails userDetails = (UserDetails) authentication.getPrincipal();
                 String accessToken = jwtTokenProvider.generateAccessToken(userDetails);
-                // TODO Phase 4: move refresh token to httpOnly cookie backed by Redis
+
                 String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails.getUsername());
+                storeRefreshTokenInRedis(userDetails.getUsername(), refreshToken);
 
                 User user = userRepository.findByEmail(userDetails.getUsername())
                                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND, "User not found"));
@@ -122,14 +125,24 @@ public class AuthService {
                                 .build();
         }
 
-        public AuthResponse refreshToken(TokenRefreshRequest request) {
-                String refreshToken = request.getRefreshToken();
-
+        public AuthResponse refreshToken(String refreshToken) {
                 if (!jwtTokenProvider.validateToken(refreshToken)) {
                         throw new BusinessException(ErrorCode.INVALID_TOKEN, "Refresh token is invalid or expired");
                 }
 
                 String email = jwtTokenProvider.extractEmail(refreshToken);
+
+                // Validate against Redis allowlist
+                String redisKey = com.myshop.constants.CacheKeys.format(com.myshop.constants.CacheKeys.JWT_REFRESH,
+                                email);
+                org.redisson.api.RBucket<String> bucket = redissonClient.getBucket(redisKey);
+                String storedToken = bucket.get();
+
+                if (storedToken == null || !storedToken.equals(refreshToken)) {
+                        throw new BusinessException(ErrorCode.INVALID_TOKEN,
+                                        "Refresh token has been revoked or expired");
+                }
+
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
                 String newAccessToken = jwtTokenProvider.generateAccessToken(userDetails);
 
@@ -138,9 +151,26 @@ public class AuthService {
 
                 return AuthResponse.builder()
                                 .accessToken(newAccessToken)
-                                .refreshToken(refreshToken) // same refresh token (no rotation in Phase 1)
+                                .refreshToken(refreshToken) // same refresh token (no rotation in Phase 1/4)
                                 .expiresIn(jwtTokenProvider.getAccessTokenExpiryMs())
                                 .user(userMapper.toResponse(user))
                                 .build();
+        }
+
+        private void storeRefreshTokenInRedis(String email, String refreshToken) {
+                String redisKey = com.myshop.constants.CacheKeys.format(com.myshop.constants.CacheKeys.JWT_REFRESH,
+                                email);
+                redissonClient.getBucket(redisKey).set(refreshToken, 7, java.util.concurrent.TimeUnit.DAYS);
+        }
+
+        public void logout(String refreshToken) {
+                if (refreshToken != null && jwtTokenProvider.validateToken(refreshToken)) {
+                        String email = jwtTokenProvider.extractEmail(refreshToken);
+                        String redisKey = com.myshop.constants.CacheKeys.format(
+                                        com.myshop.constants.CacheKeys.JWT_REFRESH,
+                                        email);
+                        redissonClient.getBucket(redisKey).delete();
+                        log.info("User logged out, refresh token cleared: {}", email);
+                }
         }
 }

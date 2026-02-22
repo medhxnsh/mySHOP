@@ -1,17 +1,25 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import ProductReviews from '../components/ProductReviews'
+import useAuthStore from '../store/authStore'
+import useCartStore from '../store/cartStore'
 
 export default function ProductDetail() {
     const { id } = useParams()
+    const navigate = useNavigate()
+    const { user } = useAuthStore()
+    const { setPendingAction, incrementCount } = useCartStore()
     const [product, setProduct] = useState(null)
     const [loading, setLoading] = useState(true)
+    const [cacheStatus, setCacheStatus] = useState(null)
 
     useEffect(() => {
-        axios.get(`http://localhost:8080/api/v1/products/${id}`)
+        axios.get(`/api/v1/products/${id}`)
             .then(res => {
                 setProduct(res.data.data)
+                setCacheStatus(res.headers['x-cache'] || 'MISS')
                 setLoading(false)
             })
             .catch(err => {
@@ -46,14 +54,26 @@ export default function ProductDetail() {
         <div className="max-w-6xl mx-auto px-6 py-12">
             <div className="flex flex-col md:flex-row gap-12">
                 {/* Product Image Placeholder */}
-                <div className="w-full md:w-1/2 aspect-square bg-[#0f0f0f] border border-gray-800 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-600 font-mono text-sm tracking-widest uppercase">{product.categoryName || 'Image'}</span>
+                <div className="w-full md:w-1/2 aspect-square bg-[#0f0f0f] border border-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
+                    <img
+                        src={`https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(product.name)}`}
+                        alt={product.name}
+                        className="w-full h-full object-cover opacity-80"
+                    />
                 </div>
 
                 {/* Product Info */}
                 <div className="w-full md:w-1/2 flex flex-col pt-4">
-                    <div className="text-sm text-gray-500 uppercase tracking-widest mb-2">
-                        {product.categoryName || 'Uncategorized'}
+                    <div className="flex items-center gap-4 mb-2">
+                        <div className="text-sm text-gray-500 uppercase tracking-widest">
+                            {product.categoryName || 'Uncategorized'}
+                        </div>
+                        {cacheStatus && (
+                            <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded font-bold ${cacheStatus === 'HIT' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'
+                                }`} title="Dev Mode: Cache Status">
+                                Cache {cacheStatus}
+                            </span>
+                        )}
                     </div>
                     <h1 className="text-3xl font-semibold mb-4 text-white">
                         {product.name}
@@ -84,17 +104,26 @@ export default function ProductDetail() {
                         </span>
                     </div>
 
-                    <div className="mt-auto relative group">
+                    <div className="mt-auto">
                         <button
-                            disabled
-                            className="w-full bg-white text-black font-medium py-4 rounded-md disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors"
+                            onClick={async () => {
+                                if (!user) {
+                                    setPendingAction({ type: 'ADD_TO_CART', payload: { productId: id, quantity: 1 } })
+                                    navigate(`/login?redirect=/products/${id}`)
+                                    return
+                                }
+                                try {
+                                    await axios.post('/api/v1/cart/items', { productId: id, quantity: 1 })
+                                    toast.success('Added to cart!')
+                                    incrementCount(1)
+                                } catch (err) {
+                                    toast.error('Failed to add to cart')
+                                }
+                            }}
+                            className="w-full bg-[#2563eb] text-white hover:bg-blue-600 font-medium py-4 rounded-md transition-colors"
                         >
                             Add to Cart
                         </button>
-                        {/* Tooltip */}
-                        <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-xs text-white rounded whitespace-nowrap pointer-events-none">
-                            Coming in Phase 2
-                        </div>
                     </div>
                 </div>
             </div>

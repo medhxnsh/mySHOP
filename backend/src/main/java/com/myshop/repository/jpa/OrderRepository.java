@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
+import com.myshop.model.enums.OrderStatus;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, UUID> {
@@ -36,5 +37,5 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
     @EntityGraph(attributePaths = { "items" })
-    Page<Order> findByStatusOrderByCreatedAtDesc(String status, Pageable pageable);
+    Page<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status, Pageable pageable);
 }

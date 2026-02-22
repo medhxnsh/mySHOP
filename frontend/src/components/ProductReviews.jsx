@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Star, ThumbsUp, CheckCircle } from 'lucide-react'
 import axios from 'axios'
+import useAuthStore from '../store/authStore'
 
 export default function ProductReviews({ productId }) {
     const [reviews, setReviews] = useState([])
@@ -25,7 +26,7 @@ export default function ProductReviews({ productId }) {
 
     const fetchReviews = async () => {
         try {
-            const res = await axios.get(`http://localhost:8080/api/v1/products/${productId}/reviews?size=20`)
+            const res = await axios.get(`/api/v1/products/${productId}/reviews?size=20`)
             if (res.data?.success) {
                 setReviews(res.data.data.content || [])
             }
@@ -38,7 +39,7 @@ export default function ProductReviews({ productId }) {
 
     const checkEligibility = async () => {
         try {
-            const res = await axios.get(`http://localhost:8080/api/v1/products/${productId}/reviews/eligibility`, {
+            const res = await axios.get(`/api/v1/products/${productId}/reviews/eligibility`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
             if (res.data?.success) {
@@ -58,7 +59,7 @@ export default function ProductReviews({ productId }) {
         setSubmitLoading(true)
         setError(null)
         try {
-            await axios.post(`http://localhost:8080/api/v1/products/${productId}/reviews`, {
+            await axios.post(`/api/v1/products/${productId}/reviews`, {
                 rating, title, comment
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -80,7 +81,7 @@ export default function ProductReviews({ productId }) {
     const markHelpful = async (reviewId) => {
         if (!token) return alert('Please login to mark as helpful')
         try {
-            await axios.put(`http://localhost:8080/api/v1/reviews/${reviewId}/helpful`, {}, {
+            await axios.put(`/api/v1/reviews/${reviewId}/helpful`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             })
             fetchReviews() // naive refresh

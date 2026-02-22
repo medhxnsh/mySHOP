@@ -103,6 +103,11 @@ public class SecurityConfig {
                         // Public: Auth endpoints — anyone can register/login
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
+                        // Authenticated users can manage reviews (Must precede broader
+                        // /api/v1/products/** rules)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/products/*/reviews").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/products/*/reviews/eligibility").authenticated()
+
                         // Public: Product & Category reads
                         .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
@@ -115,6 +120,9 @@ public class SecurityConfig {
                         // ADMIN only: Category writes
                         .requestMatchers(HttpMethod.POST, "/api/v1/categories/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/categories/**").hasRole("ADMIN")
+
+                        // ADMIN only: All admin endpoints
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
                         // Public: Actuator health (for Docker healthcheck and monitoring)
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
@@ -193,6 +201,7 @@ public class SecurityConfig {
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID"));
+        configuration.setExposedHeaders(List.of("X-Cache", "Retry-After"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
