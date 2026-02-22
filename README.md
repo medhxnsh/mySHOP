@@ -1,77 +1,162 @@
-# mySHOP — Enterprise Event-Driven E-Commerce Infrastructure
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0ea5e9,100:6366f1&height=220&section=header&text=mySHOP&fontSize=60&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=Enterprise%20Event-Driven%20E-Commerce%20Infrastructure&descSize=18&descAlignY=58&descColor=ffffff" />
+</p>
 
 <p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0ea5e9,100:6366f1&height=220&section=header&text=mySHOP&fontSize=45&fontColor=ffffff&animation=fadeIn&fontAlignY=38" />
+  <img src="https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Spring_Boot-3-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
+  <img src="https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white" />
+  <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" />
+  <img src="https://img.shields.io/badge/status-active-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/PRs-welcome-blueviolet?style=flat-square" />
 </p>
 
 ---
 
-<h2 align="center">Overview</h2>
+## Overview
 
-A high-performance e-commerce platform engineered with a focus on event-driven architecture, distributed caching, and scalable service decoupling.
+**mySHOP** is a high-performance, production-grade e-commerce platform built around event-driven architecture. It decouples core transactional workflows from downstream side-effects using Apache Kafka, implements a tiered Redis caching strategy for low-latency catalog reads, and enforces enterprise-grade security through stateless JWT authentication and role-based access control.
+
+The entire platform is containerized and orchestrated via Docker Compose, enabling consistent, reproducible deployments from a single command.
 
 ---
 
-<h2 align="center">Technical Architecture</h2>
+## Architecture
 
-The system utilizes a containerized stack designed for low-latency data retrieval and resilient asynchronous processing.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                         │
+│            React 18 · Vite · Tailwind CSS · Zustand         │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ HTTP / REST
+┌──────────────────────────▼──────────────────────────────────┐
+│                         API LAYER                           │
+│           Spring Boot 3 · Spring Security · JWT             │
+│                    Rate Limiting (Bucket4j)                  │
+└────────┬──────────────────┬──────────────────┬──────────────┘
+         │                  │                  │
+┌────────▼──────┐  ┌────────▼──────┐  ┌────────▼──────────────┐
+│  PostgreSQL   │  │     Redis     │  │    Apache Kafka        │
+│  Primary DB   │  │  Cache Layer  │  │  Event Bus / Streams   │
+└───────────────┘  └───────────────┘  └────────────┬───────────┘
+                                                   │
+                                        ┌──────────▼──────────┐
+                                        │       MongoDB        │
+                                        │  Event Store / Logs  │
+                                        └─────────────────────┘
+```
 
-<br>
+---
 
-<table align="center">
+## Technology Stack
+
+<table>
+<thead>
 <tr>
 <th>Tier</th>
 <th>Technology</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Backend</strong></td>
+<td>Java 21, Spring Boot 3, Spring Security</td>
+<td>Core API and business logic</td>
 </tr>
 <tr>
-<td>Backend</td>
-<td>Java 21, Spring Boot 3, Spring Security (JWT)</td>
+<td><strong>Authentication</strong></td>
+<td>JWT, RBAC</td>
+<td>Stateless auth and role-based access control</td>
 </tr>
 <tr>
-<td>Data</td>
-<td>PostgreSQL, Redis, MongoDB</td>
+<td><strong>Primary Database</strong></td>
+<td>PostgreSQL</td>
+<td>Relational data persistence</td>
 </tr>
 <tr>
-<td>Messaging</td>
+<td><strong>Cache</strong></td>
+<td>Redis</td>
+<td>High-speed catalog caching</td>
+</tr>
+<tr>
+<td><strong>Event Store</strong></td>
+<td>MongoDB</td>
+<td>Telemetry and event log storage</td>
+</tr>
+<tr>
+<td><strong>Messaging</strong></td>
 <td>Apache Kafka</td>
+<td>Async event streaming and service decoupling</td>
 </tr>
 <tr>
-<td>Frontend</td>
+<td><strong>Rate Limiting</strong></td>
+<td>Bucket4j</td>
+<td>API traffic governance</td>
+</tr>
+<tr>
+<td><strong>Frontend</strong></td>
 <td>React 18, Vite, Tailwind CSS, Zustand</td>
+<td>Reactive UI and client-side state management</td>
 </tr>
 <tr>
-<td>Ops</td>
+<td><strong>Ops</strong></td>
 <td>Docker, Docker Compose</td>
+<td>Containerization and orchestration</td>
 </tr>
+</tbody>
 </table>
 
 ---
 
-<h2 align="center">Core Capabilities</h2>
+## Core Capabilities
 
-### Asynchronous Event Processing
+**Asynchronous Event Processing** — Order lifecycle events (placement, cancellation, fulfillment) are published to Kafka topics and consumed by isolated downstream services. This decoupling ensures notification delivery and telemetry pipelines never block the primary transaction path.
 
-The platform decouples primary transactions from side-effects using Apache Kafka. Events such as order placement and cancellations are processed by isolated consumers to handle notifications and telemetry without impacting user response times.
+**Tiered Caching Strategy** — High-traffic catalog endpoints are backed by Redis, reducing PostgreSQL load during peak periods. Cache eviction is automated and policy-driven, maintaining data consistency immediately following administrative updates.
 
-### Tiered Caching Strategy
+**Traffic Governance** — Bucket4j-powered rate limiting protects all internal APIs from saturation and abuse. Synchronized frontend middleware manages the user experience gracefully during high-concurrency periods.
 
-Integrated Redis caching on high-traffic catalog endpoints minimizes database load. The system implements automated cache eviction policies to maintain data consistency across administrative updates.
-
-### Traffic Governance
-
-Sophisticated rate-limiting infrastructure (Bucket4j) protects internal APIs from saturation. The system includes synchronized frontend middleware to manage user experience during high-concurrency periods.
-
-### Secure State Management
-
-Implements stateless authentication via JWT and strictly enforced role-based access control (RBAC) for administrative governance of products, cache states, and event streams.
+**Secure State Management** — Fully stateless JWT authentication eliminates session-state overhead. RBAC enforces strict access boundaries over product management, cache invalidation, and event stream monitoring.
 
 ---
 
-<h2 align="center">Deployment</h2>
+## Getting Started
 
-Ensure Docker and Docker Compose are installed on the host system.
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) `v24+`
+- [Docker Compose](https://docs.docker.com/compose/install/) `v2+`
+
+### Installation
 
 ```bash
+# Clone the repository
 git clone https://github.com/medhxnsh/mySHOP.git
+
+# Navigate into the project
 cd mySHOP
+
+# Build and start all services
 docker-compose up -d --build
+```
+
+All services — backend, frontend, Kafka, Redis, PostgreSQL, and MongoDB — will be provisioned automatically.
+
+---
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:6366f1,100:0ea5e9&height=120&section=footer" />
+</p>
