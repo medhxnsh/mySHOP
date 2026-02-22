@@ -29,7 +29,8 @@ The entire platform is containerized and orchestrated via Docker Compose, enabli
 
 ## Architecture
 
-```
+<div align="center">
+<pre>
 ┌─────────────────────────────────────────────────────────────┐
 │                        CLIENT LAYER                         │
 │            React 18 · Vite · Tailwind CSS · Zustand         │
@@ -50,7 +51,8 @@ The entire platform is containerized and orchestrated via Docker Compose, enabli
                                         │       MongoDB        │
                                         │  Event Store / Logs  │
                                         └─────────────────────┘
-```
+</pre>
+</div>
 
 ---
 
