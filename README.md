@@ -1,30 +1,53 @@
 # mySHOP — Enterprise Event-Driven E-Commerce Infrastructure
 
-![banner](https://capsule-render.vercel.app/api?type=waving&color=0:0ea5e9,100:6366f1&height=220&section=header&text=mySHOP&fontSize=45&fontColor=ffffff&animation=fadeIn&fontAlignY=38)
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0ea5e9,100:6366f1&height=220&section=header&text=mySHOP&fontSize=45&fontColor=ffffff&animation=fadeIn&fontAlignY=38" />
+</p>
 
 ---
 
-## Overview
+<h2 align="center">Overview</h2>
 
 A high-performance e-commerce platform engineered with a focus on event-driven architecture, distributed caching, and scalable service decoupling.
 
 ---
 
-## Technical Architecture
+<h2 align="center">Technical Architecture</h2>
 
 The system utilizes a containerized stack designed for low-latency data retrieval and resilient asynchronous processing.
 
-| Tier | Technology |
-|------|------|
-| Backend | Java 21, Spring Boot 3, Spring Security (JWT) |
-| Data | PostgreSQL, Redis, MongoDB |
-| Messaging | Apache Kafka |
-| Frontend | React 18, Vite, Tailwind CSS, Zustand |
-| Ops | Docker, Docker Compose |
+<br>
+
+<table align="center">
+<tr>
+<th>Tier</th>
+<th>Technology</th>
+</tr>
+<tr>
+<td>Backend</td>
+<td>Java 21, Spring Boot 3, Spring Security (JWT)</td>
+</tr>
+<tr>
+<td>Data</td>
+<td>PostgreSQL, Redis, MongoDB</td>
+</tr>
+<tr>
+<td>Messaging</td>
+<td>Apache Kafka</td>
+</tr>
+<tr>
+<td>Frontend</td>
+<td>React 18, Vite, Tailwind CSS, Zustand</td>
+</tr>
+<tr>
+<td>Ops</td>
+<td>Docker, Docker Compose</td>
+</tr>
+</table>
 
 ---
 
-## Core Capabilities
+<h2 align="center">Core Capabilities</h2>
 
 ### Asynchronous Event Processing
 
@@ -44,7 +67,7 @@ Implements stateless authentication via JWT and strictly enforced role-based acc
 
 ---
 
-## Deployment
+<h2 align="center">Deployment</h2>
 
 Ensure Docker and Docker Compose are installed on the host system.
 
