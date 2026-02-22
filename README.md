@@ -29,30 +29,21 @@ The entire platform is containerized and orchestrated via Docker Compose, enabli
 
 ## Architecture
 
-<div align="center">
-<pre>
-┌─────────────────────────────────────────────────────────────┐
-│                        CLIENT LAYER                         │
-│            React 18 · Vite · Tailwind CSS · Zustand         │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ HTTP / REST
-┌──────────────────────────▼──────────────────────────────────┐
-│                         API LAYER                           │
-│           Spring Boot 3 · Spring Security · JWT             │
-│                    Rate Limiting (Bucket4j)                  │
-└────────┬──────────────────┬──────────────────┬──────────────┘
-         │                  │                  │
-┌────────▼──────┐  ┌────────▼──────┐  ┌────────▼──────────────┐
-│  PostgreSQL   │  │     Redis     │  │    Apache Kafka        │
-│  Primary DB   │  │  Cache Layer  │  │  Event Bus / Streams   │
-└───────────────┘  └───────────────┘  └────────────┬───────────┘
-                                                   │
-                                        ┌──────────▼──────────┐
-                                        │       MongoDB        │
-                                        │  Event Store / Logs  │
-                                        └─────────────────────┘
-</pre>
-</div>
+```mermaid
+flowchart TD
+    A["CLIENT LAYER\nReact 18 · Vite · Tailwind CSS · Zustand"]
+    B["API LAYER\nSpring Boot 3 · Spring Security · JWT\nRate Limiting (Bucket4j)"]
+    C["PostgreSQL\nPrimary DB"]
+    D["Redis\nCache Layer"]
+    E["Apache Kafka\nEvent Bus / Streams"]
+    F["MongoDB\nEvent Store / Logs"]
+
+    A -->|HTTP / REST| B
+    B --> C
+    B --> D
+    B --> E
+    E --> F
+```
 
 ---
 
