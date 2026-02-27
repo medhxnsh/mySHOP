@@ -21,49 +21,71 @@ export default function Navbar() {
     }
 
     return (
-        <nav className="border-b border-gray-800 bg-[#0a0a0a] sticky top-0 z-50">
-            <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                <Link to="/" className="text-xl font-semibold tracking-tight text-white hover:text-gray-300 transition-colors">
+        <nav className="bg-black border-b border-white border-opacity-5 sticky top-0 z-50">
+            <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                {/* Logo */}
+                <Link to="/" className="text-lg font-semibold tracking-tight text-white hover:text-gray-300 transition-colors duration-300">
                     myShop
                 </Link>
-                <div className="flex items-center gap-6 text-sm font-medium">
-                    <Link to="/products" className="text-gray-300 hover:text-white transition-colors">Browse</Link>
+
+                {/* Navigation Items */}
+                <div className="flex items-center gap-8 text-sm font-medium">
+                    <Link to="/products" className="text-gray-400 hover:text-white transition-colors duration-300">
+                        Browse
+                    </Link>
+                    
                     {(user?.role === 'ROLE_ADMIN' || user?.role === 'ADMIN') && (
                         <>
-                            <Link to="/admin/products" className="text-gray-400 hover:text-white transition-colors">Products Admin</Link>
-                            <Link to="/admin/kafka" className="text-gray-400 hover:text-white transition-colors">Kafka</Link>
+                            <Link to="/admin/products" className="text-gray-500 hover:text-gray-200 transition-colors duration-300">
+                                Products
+                            </Link>
+                            <Link to="/admin/kafka" className="text-gray-500 hover:text-gray-200 transition-colors duration-300">
+                                Kafka
+                            </Link>
                         </>
                     )}
-                    <div className="w-px h-4 bg-gray-800 hidden sm:block"></div>
-                    <Link to="/cart" className="text-gray-300 hover:text-white transition-colors relative">
+
+                    {/* Divider */}
+                    <div className="w-px h-4 bg-white bg-opacity-10 hidden sm:block" />
+
+                    {/* Cart */}
+                    <Link to="/cart" className="text-gray-400 hover:text-white transition-colors duration-300 relative flex items-center gap-2">
                         Cart
                         {itemsCount > 0 && (
-                            <span className="absolute -top-2 -right-3 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
+                            <span className="absolute -top-2 -right-4 bg-apple-blue text-white text-[10px] font-semibold px-2 py-0.5 rounded-full min-w-[20px] text-center">
                                 {itemsCount}
                             </span>
                         )}
                     </Link>
+
+                    {/* Notification Bell */}
                     <NotificationBell />
+
+                    {/* Auth Section */}
                     {user ? (
-                        <div className="flex items-center gap-4">
-                            <span className="text-gray-300 text-sm">
-                                {user.firstName ? `Hi, ${user.firstName}` : user.email}
+                        <div className="flex items-center gap-6 ml-4 pl-8 border-l border-white border-opacity-10">
+                            <span className="text-gray-400 text-sm">
+                                {user.fullName || user.email}
                             </span>
-                            <Link to="/orders" className="text-gray-300 hover:text-white transition-colors text-sm">Orders</Link>
+                            <Link to="/orders" className="text-gray-400 hover:text-white transition-colors duration-300 text-sm">
+                                Orders
+                            </Link>
                             <button
                                 onClick={handleLogout}
-                                className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+                                className="text-sm font-medium text-gray-400 hover:text-red-400 transition-colors duration-300"
                             >
                                 Logout
                             </button>
                         </div>
                     ) : (
-                        <>
-                            <Link to="/login" className="text-gray-300 hover:text-white transition-colors">Login</Link>
-                            <Link to="/register" className="bg-white text-black px-4 py-1.5 rounded-md hover:bg-gray-200 transition-colors">
-                                Register
+                        <div className="flex items-center gap-4 ml-4 pl-8 border-l border-white border-opacity-10">
+                            <Link to="/login" className="text-gray-400 hover:text-white transition-colors duration-300">
+                                Login
                             </Link>
-                        </>
+                            <Link to="/register" className="bg-white text-black px-4 py-2 rounded-lg font-semibold hover:bg-gray-200 transition-colors duration-300 text-sm">
+                                Sign up
+                            </Link>
+                        </div>
                     )}
                 </div>
             </div>

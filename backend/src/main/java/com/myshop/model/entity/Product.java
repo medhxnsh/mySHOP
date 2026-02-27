@@ -45,6 +45,9 @@ public class Product {
     @Column(unique = true, nullable = false, length = 100)
     private String sku;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Column(name = "avg_rating", precision = 3, scale = 2)
     @Builder.Default
     private BigDecimal avgRating = BigDecimal.ZERO;

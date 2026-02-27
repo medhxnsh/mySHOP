@@ -34,6 +34,9 @@ public class UpdateProductRequest {
     @Size(max = 100)
     private String sku;
 
+    @Size(max = 500)
+    private String imageUrl;
+
     private UUID categoryId;
 
     private Boolean isActive;
