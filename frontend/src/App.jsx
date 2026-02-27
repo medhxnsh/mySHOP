@@ -20,13 +20,13 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Checkout from './pages/Checkout'
 import RateLimitModal from './components/RateLimitModal'
-import AdminRoute from './components/AdminRoute'
+import ProtectedRoute from './components/ProtectedRoute'
 import useAuthStore from './store/authStore'
 
 // Configure axios to always send cookies (for httpOnly refresh token)
 axios.defaults.withCredentials = true;
 
-// Intercept requests to attach auth token
+// Intercept requests to attach auth token from in-memory store
 axios.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {
@@ -35,9 +35,53 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
+// 401 interceptor: attempt silent refresh once, then redirect to login
+axios.interceptors.response.use(
+  response => response,
+  async error => {
+    const original = error.config;
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
+      try {
+        const res = await axios.post('/api/v1/auth/refresh');
+        const { accessToken, user } = res.data.data;
+        useAuthStore.getState().setAuth(accessToken, user);
+        original.headers.Authorization = `Bearer ${accessToken}`;
+        return axios(original);
+      } catch {
+        useAuthStore.getState().clearAuth();
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default function App() {
   const [rateLimit, setRateLimit] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const { token, setAuth, clearAuth } = useAuthStore()
 
+  // Silent refresh on mount — restore session from httpOnly refresh cookie
+  useEffect(() => {
+    const tryRefresh = async () => {
+      try {
+        const res = await axios.post('/api/v1/auth/refresh');
+        setAuth(res.data.data.accessToken, res.data.data.user);
+      } catch {
+        clearAuth();
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    if (!token) {
+      tryRefresh();
+    } else {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  // Rate limit interceptor
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       response => response,
@@ -55,27 +99,41 @@ export default function App() {
     return () => axios.interceptors.response.eject(interceptor);
   }, []);
 
+  // Show nothing until silent refresh completes to avoid flashing login state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
   return (
     <Router>
       <div className="min-h-screen flex flex-col bg-[#0a0a0a] text-white font-sans selection:bg-[#2563eb] selection:text-white">
         <Navbar />
         <main className="flex-grow">
           <Routes>
+            {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/status" element={<Status />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/order-confirmation/:id" element={<OrderConfirmation />} />
-            <Route path="/orders" element={<OrderHistory />} />
-            <Route path="/orders/:id" element={<OrderDetail />} />
-            <Route path="/admin/cache" element={<AdminRoute><AdminCache /></AdminRoute>} />
-            <Route path="/admin/kafka" element={<AdminRoute><AdminKafka /></AdminRoute>} />
-            <Route path="/admin/products" element={<AdminRoute><AdminProducts /></AdminRoute>} />
             <Route path="/flash-sale" element={<FlashSale />} />
+
+            {/* Authenticated routes */}
+            <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+            <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+            <Route path="/order-confirmation/:id" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
+            <Route path="/orders" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
+            <Route path="/orders/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+
+            {/* Admin routes */}
+            <Route path="/admin/cache" element={<ProtectedRoute requireAdmin={true}><AdminCache /></ProtectedRoute>} />
+            <Route path="/admin/kafka" element={<ProtectedRoute requireAdmin={true}><AdminKafka /></ProtectedRoute>} />
+            <Route path="/admin/products" element={<ProtectedRoute requireAdmin={true}><AdminProducts /></ProtectedRoute>} />
           </Routes>
         </main>
         <Footer />

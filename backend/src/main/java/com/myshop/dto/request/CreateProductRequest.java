@@ -37,6 +37,10 @@ public class CreateProductRequest {
     @Size(max = 100, message = "SKU cannot exceed 100 characters")
     private String sku;
 
+    /** Optional — URL of the product image */
+    @Size(max = 500, message = "Image URL cannot exceed 500 characters")
+    private String imageUrl;
+
     /** Optional — product will be uncategorised if null */
     private UUID categoryId;
 }

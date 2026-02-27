@@ -113,6 +113,9 @@ CREATE TABLE products (
     -- Example: "APPLE-IPHONE-15-BLK-128GB"
     sku VARCHAR(100) UNIQUE NOT NULL,
 
+    -- URL pointing to product image (external or uploaded)
+    image_url VARCHAR(500),
+
     -- Denormalized rating fields — calculated from MongoDB reviews (Phase 3).
     -- Why store here instead of computing with a MongoDB aggregate on every request?
     -- Performance: one PostgreSQL field read vs cross-database aggregation.

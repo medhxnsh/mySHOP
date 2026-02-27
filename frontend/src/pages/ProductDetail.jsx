@@ -53,12 +53,16 @@ export default function ProductDetail() {
     return (
         <div className="max-w-6xl mx-auto px-6 py-12">
             <div className="flex flex-col md:flex-row gap-12">
-                {/* Product Image Placeholder */}
-                <div className="w-full md:w-1/2 aspect-square bg-[#0f0f0f] border border-gray-800 rounded-lg overflow-hidden flex items-center justify-center">
+                {/* Product Image */}
+                <div className="w-full md:w-1/2 aspect-square bg-white border border-gray-800 rounded-lg overflow-hidden flex items-center justify-center p-6">
                     <img
-                        src={`https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(product.name)}`}
+                        src={product.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(product.name)}`}
                         alt={product.name}
-                        className="w-full h-full object-cover opacity-80"
+                        className="max-w-full max-h-full object-contain"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://placehold.co/600x400?text=${encodeURIComponent(product.name)}`;
+                        }}
                     />
                 </div>
 

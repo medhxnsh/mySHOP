@@ -1,0 +1,3 @@
+-- V5__add_image_url.sql — No-op: image_url column is now defined in V1.
+-- This file is kept to avoid Flyway version gaps.
+-- Nothing to do.

@@ -1,50 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell } from 'lucide-react';
-import axios from 'axios';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast, { Toaster } from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
+import api from '../services/api';
 
 export default function NotificationBell() {
-    const [notifications, setNotifications] = useState([]);
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
-    const token = localStorage.getItem('token');
+    const queryClient = useQueryClient();
+    const { token } = useAuthStore();
 
-    // Polling or fetch on mount
-    const fetchNotifications = async () => {
-        if (!token) return;
-        try {
-            const res = await axios.get('/api/v1/notifications', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (res.data?.success) {
-                const newNotifs = res.data.data.content || [];
-
-                // Check if there's a new notification we haven't seen in state yet
-                setNotifications(prev => {
-                    if (prev.length > 0 && newNotifs.length > 0) {
-                        const prevLatestId = prev[0]?.id;
-                        const currLatestId = newNotifs[0]?.id;
-
-                        // Show toast if a new unread arrives
-                        if (prevLatestId !== currLatestId && !newNotifs[0].isRead) {
-                            toast.success(`New Notification: ${newNotifs[0].title}`);
-                        }
-                    }
-                    return newNotifs;
-                });
+    const { data: notifications = [] } = useQuery({
+        queryKey: ['notifications'],
+        queryFn: () => api.get('/notifications').then(r => r.data.data?.content || []),
+        enabled: !!token,
+        refetchInterval: token ? 15000 : false,
+        onSuccess: (newNotifs) => {
+            const prevNotifs = queryClient.getQueryData(['notifications', 'prev']) || [];
+            if (prevNotifs.length > 0 && newNotifs.length > 0) {
+                const prevLatestId = prevNotifs[0]?.id;
+                const currLatestId = newNotifs[0]?.id;
+                if (prevLatestId !== currLatestId && !newNotifs[0].isRead) {
+                    toast.success(`New Notification: ${newNotifs[0].title}`);
+                }
             }
-        } catch (err) {
-            console.error('Failed to fetch notifications', err);
-        }
-    };
+        },
+    });
 
-    useEffect(() => {
-        fetchNotifications();
-        // Polling every 15s for Phase 5
-        const interval = setInterval(fetchNotifications, 15000);
-        return () => clearInterval(interval);
-    }, [token]);
+    const markAllMutation = useMutation({
+        mutationFn: () => api.put('/notifications/read-all'),
+        onSuccess: () => {
+            queryClient.setQueryData(['notifications'], (old = []) =>
+                old.map(n => ({ ...n, isRead: true }))
+            );
+            setIsOpen(false);
+        },
+    });
 
     // Close on outside click
     useEffect(() => {
@@ -56,19 +48,6 @@ export default function NotificationBell() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    const markAllAsRead = async () => {
-        try {
-            await axios.put('/api/v1/notifications/read-all', {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            // instantly update UI
-            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-            setIsOpen(false);
-        } catch (err) {
-            console.error('Failed to mark all as read', err);
-        }
-    };
 
     if (!token) return null;
 
@@ -94,7 +73,7 @@ export default function NotificationBell() {
                         <h3 className="font-semibold text-white">Notifications</h3>
                         {unreadCount > 0 && (
                             <button
-                                onClick={markAllAsRead}
+                                onClick={() => markAllMutation.mutate()}
                                 className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
                             >
                                 Mark all as read
@@ -112,8 +91,7 @@ export default function NotificationBell() {
                                 {top5.map((notif) => (
                                     <div
                                         key={notif.id}
-                                        className={`p-4 transition-colors hover:bg-[#1a1a1a] ${!notif.isRead ? 'bg-[#2563eb]/5' : ''
-                                            }`}
+                                        className={`p-4 transition-colors hover:bg-[#1a1a1a] ${!notif.isRead ? 'bg-[#2563eb]/5' : ''}`}
                                     >
                                         <div className="flex justify-between items-start mb-1">
                                             <h4 className={`text-sm font-medium ${!notif.isRead ? 'text-white' : 'text-gray-300'}`}>

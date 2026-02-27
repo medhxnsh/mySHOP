@@ -25,6 +25,7 @@ public class ProductResponse {
     private BigDecimal price;
     private int stockQuantity;
     private String sku;
+    private String imageUrl;
     private BigDecimal avgRating;
     private int reviewCount;
     private boolean isActive;

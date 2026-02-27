@@ -1,28 +1,60 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@200;300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  --black: #000000;
+  --white: #f5f5f7;
+  --grey-1: #1d1d1f;
+  --grey-2: #2d2d2f;
+  --grey-3: #86868b;
+  --accent: #0071e3;
+  --font: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --radius: 18px;
+}
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
   *,
   *::before,
   *::after {
     box-sizing: border-box;
   }
 
-  body {
-    @apply bg-[#0a0a0a] text-white font-sans antialiased;
-    margin: 0;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-[#2563eb] text-white font-medium px-4 py-2 rounded-md transition-colors hover:bg-blue-700;
+    @apply bg-white text-black font-semibold px-6 py-3 rounded-lg transition-all duration-300 hover:bg-gray-100 active:scale-95;
   }
 
   .btn-secondary {
-    @apply bg-transparent border border-gray-800 text-gray-300 font-medium px-4 py-2 rounded-md transition-colors hover:border-gray-600 hover:text-white;
+    @apply bg-transparent border border-gray-700 text-white font-medium px-6 py-3 rounded-lg transition-colors duration-300 hover:border-white hover:bg-white hover:bg-opacity-5;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

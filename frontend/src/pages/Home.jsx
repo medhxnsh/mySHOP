@@ -1,96 +1,218 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Monitor, Shirt, Book, Home, Activity } from 'lucide-react'
-import axios from 'axios'
+import { useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
+import { ChevronDown } from 'lucide-react'
+import api from '../services/api'
 
-const categories = [
-    { name: 'Electronics', icon: <Monitor size={20} /> },
-    { name: 'Clothing', icon: <Shirt size={20} /> },
-    { name: 'Books', icon: <Book size={20} /> },
-    { name: 'Home', icon: <Home size={20} /> },
-    { name: 'Sports', icon: <Activity size={20} /> }
-]
+// ── Hero ─────────────────────────────────────────────────────
+// No parallax — static content, entrance animation only
+const Hero = () => (
+    <section className="relative h-screen max-h-screen flex items-center justify-center overflow-hidden">
+        {/* Breathing orb — fixed size, centered, no overflow */}
+        <motion.div
+            animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+            className="w-[400px] h-[400px] rounded-full absolute pointer-events-none"
+            style={{
+                background: 'radial-gradient(circle, #0071e3 0%, transparent 70%)',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+            }}
+        />
 
-export default function HomePage() {
-    const [products, setProducts] = useState([])
-    const [loading, setLoading] = useState(true)
+        {/* Static hero content */}
+        <div className="relative z-10 text-center px-6 max-w-5xl">
+            <motion.h1
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+                className="text-7xl md:text-9xl font-bold tracking-tight leading-none mb-6"
+            >
+                Shop without<br />compromise.
+            </motion.h1>
+
+            <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="text-xl mb-6"
+                style={{ color: 'var(--grey-3)' }}
+            >
+                Premium products, fast delivery, zero friction.
+            </motion.p>
+
+            <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                className="px-8 py-4 text-white rounded-full text-lg font-medium"
+                style={{ background: 'var(--accent)' }}
+                onClick={() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+                Browse Products
+            </motion.button>
+        </div>
+
+        {/* Scroll indicator */}
+        <motion.div
+            className="absolute bottom-8 left-1/2 -translate-x-1/2"
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+        >
+            <ChevronDown className="w-6 h-6" style={{ color: 'var(--grey-3)' }} />
+        </motion.div>
+    </section>
+)
+
+// ── Marquee Row ───────────────────────────────────────────────
+const MarqueeRow = ({ products, direction = 1, speed = 30, navigate }) => {
+    const rowRef = useRef(null)
+    const animRef = useRef(null)
+    const posRef = useRef(0)
+    const pausedRef = useRef(false)
 
     useEffect(() => {
-        // Fetch featured products
-        axios.get('/api/v1/products?page=0&size=8')
-            .then(res => {
-                setProducts(res.data.data.content)
-                setLoading(false)
-            })
-            .catch(err => {
-                console.error('Failed to fetch products', err)
-                setLoading(false)
-            })
-    }, [])
+        const row = rowRef.current
+        if (!row) return
+
+        const animate = () => {
+            if (!pausedRef.current) {
+                posRef.current -= direction * (speed / 60)
+                const halfWidth = row.scrollWidth / 2
+                if (direction > 0 && Math.abs(posRef.current) >= halfWidth) posRef.current = 0
+                if (direction < 0 && posRef.current >= 0) posRef.current = -halfWidth
+                row.style.transform = `translateX(${posRef.current}px)`
+            }
+            animRef.current = requestAnimationFrame(animate)
+        }
+        animRef.current = requestAnimationFrame(animate)
+        return () => cancelAnimationFrame(animRef.current)
+    }, [direction, speed])
+
+    const doubled = [...(products || []), ...(products || [])]
 
     return (
-        <div className="min-h-screen flex flex-col">
-            {/* Hero Section */}
-            <section className="bg-[#0a0a0a] py-32 px-6 border-b border-gray-800">
-                <div className="max-w-6xl mx-auto text-center">
-                    <h1 className="text-5xl md:text-7xl font-semibold mb-6 tracking-tight text-white">
-                        Shop without compromise.
-                    </h1>
-                    <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-                        Premium products, fast delivery, zero friction.
-                    </p>
-                    <Link to="/products" className="bg-white text-black font-medium px-8 py-3 rounded-md hover:bg-gray-200 transition-colors inline-flex items-center justify-center">
-                        Browse Products
-                    </Link>
-                </div>
-            </section>
-
-            {/* Categories Row */}
-            <section className="py-16 px-6 max-w-6xl mx-auto w-full border-b border-gray-800">
-                <h2 className="text-xl font-medium mb-8">Featured Categories</h2>
-                <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
-                    {categories.map((cat) => (
-                        <div key={cat.name} className="flex-none snap-start bg-[#0f0f0f] border border-gray-800 rounded-lg p-6 w-48 flex flex-col items-center justify-center gap-3 hover:border-gray-600 transition-colors cursor-pointer">
-                            <div className="text-gray-400">{cat.icon}</div>
-                            <div className="font-medium text-sm text-gray-200">{cat.name}</div>
+        <div
+            className="overflow-hidden"
+            onMouseEnter={() => (pausedRef.current = true)}
+            onMouseLeave={() => (pausedRef.current = false)}
+        >
+            <div ref={rowRef} className="flex gap-4 w-max">
+                {doubled.map((product, i) => (
+                    <motion.div
+                        key={`${product.id}-${i}`}
+                        whileHover={{ y: -6, transition: { duration: 0.3 } }}
+                        className="w-56 flex-shrink-0 cursor-pointer group"
+                        onClick={() => navigate(`/products/${product.id}`)}
+                    >
+                        <div
+                            className="rounded-2xl overflow-hidden aspect-square mb-3 flex items-center justify-center p-6"
+                            style={{ background: 'var(--grey-1)' }}
+                        >
+                            <img
+                                src={product.imageUrl || `https://placehold.co/400x400?text=${encodeURIComponent(product.name)}`}
+                                alt={product.name}
+                                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                                onError={e => {
+                                    e.target.onerror = null
+                                    e.target.src = `https://placehold.co/400x400?text=${encodeURIComponent(product.name)}`
+                                }}
+                            />
                         </div>
+                        <p className="text-xs uppercase tracking-widest mb-1" style={{ color: 'var(--grey-3)' }}>
+                            {product.categoryName}
+                        </p>
+                        <p className="text-sm font-medium line-clamp-1">{product.name}</p>
+                        <p className="text-sm" style={{ color: 'var(--grey-3)' }}>
+                            ${product.price?.toFixed(2)}
+                        </p>
+                    </motion.div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+// ── Home Page ─────────────────────────────────────────────────
+export default function Home() {
+    const navigate = useNavigate()
+
+    const { data: products = [] } = useQuery({
+        queryKey: ['featured-products'],
+        queryFn: () => api.get('/products?page=0&size=12').then(r => r.data.data.content),
+    })
+
+    const { data: categories = [] } = useQuery({
+        queryKey: ['categories'],
+        queryFn: () => api.get('/categories').then(r => r.data.data),
+    })
+
+    return (
+        <main>
+            <Hero />
+
+            {/* Category pills */}
+            <section className="px-6 py-8 max-w-7xl mx-auto">
+                <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+                    {categories.map(cat => (
+                        <motion.button
+                            key={cat.id}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => navigate(`/products?categoryId=${cat.id}`)}
+                            className="px-5 py-2 rounded-full border text-sm whitespace-nowrap transition-all duration-200 flex-shrink-0"
+                            style={{ borderColor: 'var(--grey-2)', color: 'var(--white)' }}
+                            onMouseEnter={e => {
+                                e.currentTarget.style.borderColor = 'var(--accent)'
+                                e.currentTarget.style.color = 'var(--accent)'
+                            }}
+                            onMouseLeave={e => {
+                                e.currentTarget.style.borderColor = 'var(--grey-2)'
+                                e.currentTarget.style.color = 'var(--white)'
+                            }}
+                        >
+                            {cat.name}
+                        </motion.button>
                     ))}
                 </div>
             </section>
 
-            {/* Featured Products Grid */}
-            <section className="py-16 px-6 max-w-6xl mx-auto w-full">
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-xl font-medium">Featured Products</h2>
-                    <Link to="/products" className="text-sm text-[#2563eb] hover:text-blue-400 font-medium">View all →</Link>
+            {/* Auto-scrolling marquee product rows */}
+            <section id="products" className="py-12 overflow-hidden">
+                <div className="max-w-7xl mx-auto px-6 mb-10 flex justify-between items-baseline">
+                    <h2 className="text-4xl font-bold">Featured</h2>
+                    <button
+                        onClick={() => navigate('/products')}
+                        className="text-sm transition-opacity hover:opacity-70"
+                        style={{ color: 'var(--accent)' }}
+                    >
+                        View all →
+                    </button>
                 </div>
 
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {products.length === 0 ? (
+                    <div className="max-w-7xl mx-auto px-6 grid grid-cols-4 gap-4">
                         {[...Array(8)].map((_, i) => (
-                            <div key={i} className="aspect-square bg-gray-900 rounded-lg animate-pulse" />
+                            <div key={i}>
+                                <div className="aspect-square rounded-2xl animate-pulse mb-3" style={{ background: 'var(--grey-1)' }} />
+                                <div className="h-3 rounded animate-pulse mb-2 w-2/3" style={{ background: 'var(--grey-2)' }} />
+                                <div className="h-3 rounded animate-pulse w-1/3" style={{ background: 'var(--grey-2)' }} />
+                            </div>
                         ))}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {products.map(product => (
-                            <Link key={product.id} to={`/products/${product.id}`} className="group block">
-                                <div className="aspect-square bg-[#0f0f0f] border border-gray-800 rounded-lg mb-3 overflow-hidden relative">
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-600">
-                                        <span className="text-xs font-mono uppercase tracking-widest">{product.categoryName || 'Product'}</span>
-                                    </div>
-                                </div>
-                                <h3 className="text-sm font-medium text-gray-200 group-hover:text-[#2563eb] transition-colors truncate">
-                                    {product.name}
-                                </h3>
-                                <div className="text-sm text-gray-400 mt-1">
-                                    ${product.price.toFixed(2)}
-                                </div>
-                            </Link>
-                        ))}
+                    <div className="space-y-4">
+                        <MarqueeRow products={products.slice(0, 8)} direction={1} speed={25} navigate={navigate} />
+                        <MarqueeRow products={products.slice(4, 12)} direction={-1} speed={20} navigate={navigate} />
                     </div>
                 )}
             </section>
-        </div>
+
+            <div className="h-12" />
+        </main>
     )
 }
