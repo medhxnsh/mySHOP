@@ -14,6 +14,11 @@ export default function Checkout() {
     const [loading, setLoading] = useState(true)
     const [placingOrder, setPlacingOrder] = useState(false)
 
+    // One key per checkout session: retries after a network timeout reuse it,
+    // so the backend replays the original order instead of creating a duplicate.
+    // (On failed attempts the server releases the key, so retrying is safe.)
+    const [idempotencyKey] = useState(() => crypto.randomUUID())
+
     const [address, setAddress] = useState({
         street: '',
         city: '',
@@ -89,7 +94,9 @@ export default function Checkout() {
                 paymentMethod: paymentMethod
             }
             // 1. Create the order
-            const res = await axios.post('/api/v1/orders', payload)
+            const res = await axios.post('/api/v1/orders', payload, {
+                headers: { 'Idempotency-Key': idempotencyKey }
+            })
             const orderId = res.data.data.id
 
             // 2. If Card, immediately try to resolve payment

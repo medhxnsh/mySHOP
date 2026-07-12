@@ -1,7 +1,10 @@
 package com.myshop;
 
+import com.myshop.constants.KafkaTopics;
+import com.myshop.event.DomainEventPublisher;
 import com.myshop.kafka.event.OrderEvent;
-import com.myshop.kafka.producer.OrderEventProducer;
+import com.myshop.model.enums.OrderStatus;
+import com.myshop.repository.jpa.OutboxEventRepository;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -20,27 +23,41 @@ import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Map;
-import java.util.UUID;
-import com.myshop.model.enums.OrderStatus;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Phase 6: end-to-end test of the outbox pipeline —
+ * DomainEventPublisher (staged in a real DB transaction)
+ * → OutboxRelay (@Scheduled) → Kafka → consumable typed record.
+ *
+ * Replaces the pre-outbox version of this test, which injected the deleted
+ * OrderEventProducer and published directly.
+ */
 @SpringBootTest
 @ActiveProfiles("test")
 @EnabledIfSystemProperty(named = "integration.tests", matches = "true")
-@EmbeddedKafka(partitions = 1, brokerProperties = { "listeners=PLAINTEXT://localhost:9092", "port=9092" })
+// Random port — a fixed 9092 collides with the docker-compose Kafka on the host.
+// @EmbeddedKafka injects its address into spring.kafka.bootstrap-servers, which
+// KafkaConfig reads, so producer/consumer/relay all talk to the embedded broker.
+@EmbeddedKafka(partitions = 1, topics = KafkaTopics.ORDER_PLACED)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class KafkaIntegrationTest {
 
     @Autowired
-    private OrderEventProducer orderEventProducer;
+    private DomainEventPublisher domainEventPublisher;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private EmbeddedKafkaBroker embeddedKafkaBroker;
@@ -57,7 +74,7 @@ public class KafkaIntegrationTest {
 
         DefaultKafkaConsumerFactory<String, Object> cf = new DefaultKafkaConsumerFactory<>(configs);
         consumer = cf.createConsumer();
-        embeddedKafkaBroker.consumeFromAllEmbeddedTopics(consumer);
+        embeddedKafkaBroker.consumeFromAnEmbeddedTopic(consumer, KafkaTopics.ORDER_PLACED);
     }
 
     @AfterAll
@@ -68,32 +85,36 @@ public class KafkaIntegrationTest {
     }
 
     @Test
-    void testOrderPlacementPublishesEvent() {
-        // Arrange
+    void outboxPipeline_deliversStagedEventToKafka() throws Exception {
         String eventId = UUID.randomUUID().toString();
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
-        // Create dummy event explicitly to avoid Mockito proxying serialization issues
         OrderEvent orderEvent = OrderEvent.builder()
                 .eventId(eventId)
                 .orderId(orderId)
                 .userId(userId)
                 .email("test@example.com")
                 .totalAmount(new BigDecimal("99.99"))
-                .status(OrderStatus.PENDING) // Changed to use OrderStatus enum
+                .status(OrderStatus.PENDING)
                 .build();
 
-        // Act
-        orderEventProducer.publishOrderPlaced(orderEvent);
+        // Stage the event exactly like OrderService does: inside a transaction.
+        transactionTemplate.executeWithoutResult(status -> domainEventPublisher.publish(
+                KafkaTopics.ORDER_PLACED,
+                userId.toString(),
+                "ORDER_PLACED",
+                orderEvent,
+                "ORDER",
+                orderId.toString()));
 
-        // Assert
-        ConsumerRecords<String, Object> records = KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(10));
+        // The scheduled relay (500ms tick) picks it up and publishes.
+        ConsumerRecords<String, Object> records = KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(15));
         assertThat(records.count()).isGreaterThan(0);
 
         boolean found = false;
         for (ConsumerRecord<String, Object> record : records) {
-            if ("order.placed".equals(record.topic()) && userId.toString().equals(record.key())) {
+            if (KafkaTopics.ORDER_PLACED.equals(record.topic()) && userId.toString().equals(record.key())) {
                 OrderEvent received = (OrderEvent) record.value();
                 if (eventId.equals(received.getEventId())) {
                     found = true;
@@ -103,7 +124,19 @@ public class KafkaIntegrationTest {
                 }
             }
         }
+        assertThat(found).as("Expected OrderEvent was not delivered through the outbox relay").isTrue();
 
-        assertThat(found).as("Expected OrderEvent was not found in the Kafka topic").isTrue();
+        // The outbox row must be marked delivered (poll briefly: marking commits
+        // in the relay's transaction, slightly after the broker ack).
+        boolean marked = false;
+        for (int i = 0; i < 20 && !marked; i++) {
+            marked = outboxEventRepository.findAll().stream()
+                    .anyMatch(e -> orderId.toString().equals(e.getAggregateId())
+                            && e.getPublishedAt() != null);
+            if (!marked) {
+                Thread.sleep(250);
+            }
+        }
+        assertThat(marked).as("outbox row should be marked published_at after delivery").isTrue();
     }
 }

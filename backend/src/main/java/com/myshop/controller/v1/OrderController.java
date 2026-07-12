@@ -5,6 +5,7 @@ import com.myshop.dto.response.ApiResponse;
 import com.myshop.dto.response.OrderResponse;
 import com.myshop.dto.response.PagedResponse;
 import com.myshop.service.OrderService;
+import com.myshop.util.Idempotent;
 import com.myshop.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -29,7 +30,9 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    @Operation(summary = "Place a new order from current cart")
+    @Idempotent
+    @Operation(summary = "Place a new order from current cart", description = "Requires an Idempotency-Key header (client-generated UUID). "
+            + "Retries with the same key replay the original response instead of creating a duplicate order.")
     public ResponseEntity<ApiResponse<OrderResponse>> placeOrder(@Valid @RequestBody OrderRequest request) {
         String email = SecurityUtils.getCurrentUserEmail().orElseThrow();
         OrderResponse order = orderService.placeOrder(email, request);

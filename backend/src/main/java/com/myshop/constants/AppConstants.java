@@ -30,4 +30,16 @@ public final class AppConstants {
     // User roles
     public static final String ROLE_USER = "USER";
     public static final String ROLE_ADMIN = "ADMIN";
+
+    // Idempotency (Phase 6)
+    /** Request header carrying the client-generated idempotency key. */
+    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
+    // Outbox domain events (Phase 6) — aggregate types
+    public static final String AGGREGATE_ORDER = "ORDER";
+    public static final String AGGREGATE_INVENTORY = "INVENTORY";
+
+    // Outbox domain events (Phase 6) — event types
+    public static final String EVENT_ORDER_PLACED = "ORDER_PLACED";
+    public static final String EVENT_INVENTORY_UPDATED = "INVENTORY_UPDATED";
 }

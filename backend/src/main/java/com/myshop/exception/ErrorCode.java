@@ -74,6 +74,10 @@ public enum ErrorCode {
     REVIEW_ALREADY_EXISTS("You have already reviewed this product."),
     REVIEW_NOT_VERIFIED("You can only review products you have purchased."),
 
+    // ── Idempotency ───────────────────────────────────────────────────────────
+    IDEMPOTENCY_KEY_REQUIRED("This endpoint requires an Idempotency-Key header."),
+    IDEMPOTENCY_CONFLICT("A request with this idempotency key is already being processed."),
+
     // ── Rate Limiting ─────────────────────────────────────────────────────────
     RATE_LIMIT_EXCEEDED("Too many requests. Please wait before trying again."),
 

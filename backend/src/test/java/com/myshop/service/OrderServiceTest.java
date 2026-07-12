@@ -1,6 +1,7 @@
 package com.myshop.service;
 
 import com.myshop.dto.request.OrderRequest;
+import com.myshop.event.DomainEventPublisher;
 import com.myshop.exception.BusinessException;
 import com.myshop.model.entity.Cart;
 import com.myshop.model.entity.CartItem;
@@ -48,6 +49,12 @@ class OrderServiceTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
+
+    @Mock
+    private RedisDistributedLockService redisLockService;
 
     @InjectMocks
     private OrderService orderService;
@@ -102,6 +109,8 @@ class OrderServiceTest {
         assertEquals("INSUFFICIENT_STOCK", ex.getErrorCode().name());
         verify(orderRepository, never()).save(any());
         verify(eventPublisher, never()).publishEvent(any());
+        // No outbox event may be staged for a failed order (dual-write regression).
+        verify(domainEventPublisher, never()).publish(any(), any(), any(), any(), any(), any());
     }
 
     @Test

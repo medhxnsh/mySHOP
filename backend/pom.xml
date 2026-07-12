@@ -33,6 +33,12 @@
         <lombok.version>1.18.38</lombok.version>
         <!-- JJWT for JWT token generation/validation -->
         <jjwt.version>0.12.5</jjwt.version>
+        <!-- Mockito + Byte Buddy overrides — the versions managed by Spring Boot
+             3.2.x cannot instrument classes on JDK 24 (Byte Buddy too old), which
+             breaks mocking of concrete classes like KafkaTemplate/StringRedisTemplate:
+             "Mockito cannot mock this class ... Byte Buddy could not instrument". -->
+        <mockito.version>5.18.0</mockito.version>
+        <byte-buddy.version>1.17.5</byte-buddy.version>
     </properties>
 
     <dependencies>
@@ -146,6 +152,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- AOP — powers the @Idempotent aspect that makes checkout safely
+             retryable (Redis-backed Idempotency-Key handling). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
         <!-- ============================================================
              LOMBOK — Eliminates Java boilerplate at compile time.
              @Data, @Builder, @Slf4j etc. generate getters, setters,
@@ -255,11 +268,29 @@
     <!-- DependencyManagement: BOMs for version alignment -->
     <dependencyManagement>
         <dependencies>
+            <!-- docker-java 3.5.x — required for Docker Engine 29+ (API v1.44+);
+                 the 3.4.x pulled in by the Testcontainers BOM pins an API version
+                 the new daemon rejects with HTTP 400 -->
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-api</artifactId>
+                <version>3.5.1</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-transport-zerodep</artifactId>
+                <version>3.5.1</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-transport</artifactId>
+                <version>3.5.1</version>
+            </dependency>
             <!-- Testcontainers BOM — manages all org.testcontainers artifact versions -->
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.19.8</version>
+                <version>1.21.3</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -286,6 +317,23 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- ============================================================
+                 MAVEN SUREFIRE PLUGIN — api.version pins the Docker HTTP API
+                 version docker-java negotiates. Docker Engine 29+ rejects the
+                 legacy default (1.32) with HTTP 400, which breaks every
+                 Testcontainers test with "Could not find a valid Docker
+                 environment". 1.44 is the oldest version Engine 29 accepts.
+            ============================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <api.version>1.44</api.version>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
 

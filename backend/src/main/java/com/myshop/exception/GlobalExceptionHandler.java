@@ -113,6 +113,23 @@ public class GlobalExceptionHandler {
         }
 
         /**
+         * 400 / 409 — Idempotency protocol violations (missing/invalid
+         * Idempotency-Key header, or a concurrent in-flight request holding the
+         * same key). The exception carries its own HTTP status because the two
+         * cases map to different codes.
+         */
+        @ExceptionHandler(IdempotencyException.class)
+        public ResponseEntity<ApiResponse<Void>> handleIdempotency(IdempotencyException ex) {
+                log.warn("Idempotency violation: {} — {}", ex.getErrorCode(), ex.getMessage());
+
+                return ResponseEntity
+                                .status(ex.getStatus())
+                                .body(ApiResponse.error(
+                                                ex.getErrorCode().name(),
+                                                ex.getMessage()));
+        }
+
+        /**
          * 400 Bad Request — @Valid annotation on @RequestBody failed.
          *
          * HOW BEAN VALIDATION WORKS:

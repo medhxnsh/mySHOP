@@ -3,6 +3,12 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/myshop_test
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Matches the docker-compose default (.env REDIS_PASSWORD); Redisson connects
+      # eagerly at context startup, so tests need the real local Redis credentials.
+      password: ${REDIS_PASSWORD:change_me_in_production}
   datasource:
     # Testcontainers replaces this URL at runtime with the actual container URL
     url: jdbc:tc:postgresql:16:///myshop_test

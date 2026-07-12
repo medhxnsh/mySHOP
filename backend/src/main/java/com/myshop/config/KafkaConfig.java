@@ -1,5 +1,6 @@
 package com.myshop.config;
 
+import com.myshop.constants.KafkaTopics;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -41,7 +42,7 @@ public class KafkaConfig {
 
     @Bean
     public NewTopic orderPlacedTopic() {
-        return TopicBuilder.name("order.placed")
+        return TopicBuilder.name(KafkaTopics.ORDER_PLACED)
                 .partitions(3)
                 .replicas(1)
                 .build();
@@ -49,7 +50,7 @@ public class KafkaConfig {
 
     @Bean
     public NewTopic orderStatusUpdatedTopic() {
-        return TopicBuilder.name("order.status.updated")
+        return TopicBuilder.name(KafkaTopics.ORDER_STATUS_UPDATED)
                 .partitions(3)
                 .replicas(1)
                 .build();
@@ -57,7 +58,7 @@ public class KafkaConfig {
 
     @Bean
     public NewTopic inventoryUpdatedTopic() {
-        return TopicBuilder.name("inventory.updated")
+        return TopicBuilder.name(KafkaTopics.INVENTORY_UPDATED)
                 .partitions(3)
                 .replicas(1)
                 .build();
@@ -65,7 +66,7 @@ public class KafkaConfig {
 
     @Bean
     public NewTopic userActivityTopic() {
-        return TopicBuilder.name("user.activity")
+        return TopicBuilder.name(KafkaTopics.USER_ACTIVITY)
                 .partitions(3)
                 .replicas(1)
                 .build();
@@ -73,7 +74,7 @@ public class KafkaConfig {
 
     @Bean
     public NewTopic notificationDispatchTopic() {
-        return TopicBuilder.name("notification.dispatch")
+        return TopicBuilder.name(KafkaTopics.NOTIFICATION_DISPATCH)
                 .partitions(3)
                 .replicas(1)
                 .build();

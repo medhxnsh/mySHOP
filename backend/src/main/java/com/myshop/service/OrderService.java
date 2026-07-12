@@ -1,19 +1,20 @@
 package com.myshop.service;
 
+import com.myshop.constants.AppConstants;
+import com.myshop.constants.KafkaTopics;
 import com.myshop.dto.request.OrderRequest;
 import com.myshop.dto.request.OrderStatusUpdateRequest;
 import com.myshop.dto.response.OrderResponse;
 import com.myshop.dto.response.PagedResponse;
 import com.myshop.model.enums.OrderStatus;
 import com.myshop.model.enums.PaymentStatus;
+import com.myshop.event.DomainEventPublisher;
 import com.myshop.event.internal.OrderCreatedEvent;
 import com.myshop.exception.BusinessException;
 import com.myshop.exception.ErrorCode;
 import com.myshop.exception.ResourceNotFoundException;
 import com.myshop.kafka.event.InventoryEvent;
 import com.myshop.kafka.event.OrderEvent;
-import com.myshop.kafka.producer.InventoryEventProducer;
-import com.myshop.kafka.producer.OrderEventProducer;
 import com.myshop.mapper.OrderMapper;
 import com.myshop.model.entity.Cart;
 import com.myshop.model.entity.CartItem;
@@ -55,6 +56,9 @@ import java.util.UUID;
  * 3. RequiresNew Propagation: cancelOrder() must start a new transaction to
  * guarantee stock is restored
  * regardless of the caller's transaction state.
+ * 4. Transactional Outbox (Phase 6): Kafka events are staged as outbox rows in
+ * the same transaction as the business change and delivered asynchronously by
+ * OutboxRelay — events and state changes commit or roll back together.
  */
 @Slf4j
 @Service
@@ -67,8 +71,14 @@ public class OrderService {
     private final UserRepository userRepository;
     private final OrderMapper orderMapper;
     private final ApplicationEventPublisher eventPublisher;
-    private final OrderEventProducer orderEventProducer;
-    private final InventoryEventProducer inventoryEventProducer;
+    /**
+     * Phase 6: Kafka events go through the transactional outbox instead of
+     * direct producers. Direct publishing inside @Transactional methods was a
+     * dual-write: a rollback after publish leaked ghost events to consumers,
+     * and a crash after commit lost events entirely. The outbox row commits
+     * atomically with the business change; OutboxRelay delivers it afterwards.
+     */
+    private final DomainEventPublisher domainEventPublisher;
     private final RedisDistributedLockService redisLockService;
 
     @Transactional
@@ -128,16 +138,23 @@ public class OrderService {
                 int oldQty = product.getStockQuantity();
                 int newQty = oldQty - cartItem.getQuantity();
                 product.setStockQuantity(newQty);
-                // Fire inventory updated event (after transaction commits visually, but here
-                // it's fine)
-                inventoryEventProducer.publishInventoryUpdated(InventoryEvent.builder()
-                        .eventId(UUID.randomUUID().toString())
-                        .productId(product.getId())
-                        .name(product.getName())
-                        .oldQuantity(oldQty)
-                        .newQuantity(newQty)
-                        .reason("ORDER_PLACED")
-                        .build());
+                // Staged in the outbox — only delivered if this transaction commits,
+                // so a rollback (e.g. optimistic-lock conflict on another item) can
+                // no longer leak a stock-change event that never happened.
+                domainEventPublisher.publish(
+                        KafkaTopics.INVENTORY_UPDATED,
+                        product.getId().toString(),
+                        AppConstants.EVENT_INVENTORY_UPDATED,
+                        InventoryEvent.builder()
+                                .eventId(UUID.randomUUID().toString())
+                                .productId(product.getId())
+                                .name(product.getName())
+                                .oldQuantity(oldQty)
+                                .newQuantity(newQty)
+                                .reason("ORDER_PLACED")
+                                .build(),
+                        AppConstants.AGGREGATE_INVENTORY,
+                        product.getId().toString());
             });
 
             // Snapshot the price exactly as it is right now
@@ -163,18 +180,22 @@ public class OrderService {
         // 3. Save order (cascades to order_items)
         Order savedOrder = orderRepository.save(order);
 
-        // Publish domain event
-        eventPublisher.publishEvent(new OrderCreatedEvent(this, savedOrder));
-
-        // Phase 5: replace with Kafka event
-        orderEventProducer.publishOrderPlaced(OrderEvent.builder()
-                .eventId(UUID.randomUUID().toString())
-                .orderId(savedOrder.getId())
-                .userId(user.getId())
-                .email(user.getEmail())
-                .totalAmount(savedOrder.getTotalAmount())
-                .status(savedOrder.getStatus())
-                .build());
+        // Kafka event via the outbox — atomic with the order row. Key = userId
+        // so all of a user's order events stay on one partition (ordered).
+        domainEventPublisher.publish(
+                KafkaTopics.ORDER_PLACED,
+                user.getId().toString(),
+                AppConstants.EVENT_ORDER_PLACED,
+                OrderEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .orderId(savedOrder.getId())
+                        .userId(user.getId())
+                        .email(user.getEmail())
+                        .totalAmount(savedOrder.getTotalAmount())
+                        .status(savedOrder.getStatus())
+                        .build(),
+                AppConstants.AGGREGATE_ORDER,
+                savedOrder.getId().toString());
 
         // 4. Clear the shopping cart
         cart.getItems().clear();
@@ -182,7 +203,9 @@ public class OrderService {
 
         log.info("Order {} placed successfully for user {}", savedOrder.getId(), email);
 
-        // 5. Publish synchronous domain event -> picked up by OrderEventListener
+        // 5. Publish in-JVM domain event -> picked up by OrderEventListener.
+        // Published exactly once (an earlier duplicate publish made the listener
+        // fire twice per order, double-sending notifications).
         eventPublisher.publishEvent(new OrderCreatedEvent(this, savedOrder));
 
         return orderMapper.toResponse(savedOrder);
@@ -300,14 +323,20 @@ public class OrderService {
             product.setStockQuantity(newQty);
             productRepository.save(product);
 
-            inventoryEventProducer.publishInventoryUpdated(InventoryEvent.builder()
-                    .eventId(UUID.randomUUID().toString())
-                    .productId(product.getId())
-                    .name(product.getName())
-                    .oldQuantity(oldQty)
-                    .newQuantity(newQty)
-                    .reason("ORDER_CANCELLED")
-                    .build());
+            domainEventPublisher.publish(
+                    KafkaTopics.INVENTORY_UPDATED,
+                    product.getId().toString(),
+                    AppConstants.EVENT_INVENTORY_UPDATED,
+                    InventoryEvent.builder()
+                            .eventId(UUID.randomUUID().toString())
+                            .productId(product.getId())
+                            .name(product.getName())
+                            .oldQuantity(oldQty)
+                            .newQuantity(newQty)
+                            .reason("ORDER_CANCELLED")
+                            .build(),
+                    AppConstants.AGGREGATE_INVENTORY,
+                    product.getId().toString());
         }
 
         log.info("Order {} cancelled. Stock restored.", orderId);

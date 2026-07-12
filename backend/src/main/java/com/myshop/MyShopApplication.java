@@ -3,6 +3,7 @@ package com.myshop;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Entry point for the myShop Spring Boot application.
@@ -18,9 +19,13 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * Without this, @Async annotations on methods are silently IGNORED.
  * With this, Spring creates a proxy around @Async methods that submits
  * them to a thread pool instead of running them in the caller's thread.
+ *
+ * @EnableScheduling: Enables @Scheduled methods — required by OutboxRelay,
+ * which polls the transactional outbox and delivers pending events to Kafka.
  */
 @SpringBootApplication
 @EnableAsync
+@EnableScheduling
 public class MyShopApplication {
 
     public static void main(String[] args) {

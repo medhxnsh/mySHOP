@@ -53,6 +53,15 @@ public final class CacheKeys {
     /** Lock key for stock deduction — prevents overselling. TTL: 5 seconds. */
     public static final String LOCK_STOCK = "lock:stock:%s";
 
+    // ── Idempotency Keys ──────────────────────────────────────────────────────
+
+    /**
+     * Idempotency record for a mutating request: idempotency:{user}:{clientKey}.
+     * Value is either the literal "IN_PROGRESS" (short TTL) or the stored
+     * response JSON (24h TTL) — see IdempotencyAspect.
+     */
+    public static final String IDEMPOTENCY = "idempotency:%s:%s";
+
     // ── Search Keys ───────────────────────────────────────────────────────────
 
     /** Autocomplete suggestions for a prefix. TTL: 30 minutes. */

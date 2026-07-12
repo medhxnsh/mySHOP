@@ -26,12 +26,22 @@ import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Runs against the LIVE docker-compose Postgres (with Flyway + V2 seed data),
+ * unlike the Testcontainers-based tests. Requires `docker compose up postgres
+ * myshop-redis` first. Property values mirror the .env defaults; JWT_SECRET
+ * and the Redis password are supplied here because this test bypasses the
+ * "test" profile and .env is not visible to Maven.
+ */
 @SpringBootTest(properties = {
                 "spring.datasource.url=jdbc:postgresql://localhost:5432/myshop",
                 "spring.datasource.username=myshop_user",
                 "spring.datasource.password=change_me_in_production",
                 "spring.flyway.enabled=true",
-                "spring.jpa.hibernate.ddl-auto=validate"
+                "spring.jpa.hibernate.ddl-auto=validate",
+                "JWT_SECRET=integration-test-secret-key-32-chars-min",
+                "spring.data.redis.password=${REDIS_PASSWORD:change_me_in_production}",
+                "myshop.outbox.relay-enabled=false"
 })
 @Transactional // Rollback after each test
 class OrderFlowIntegrationTest {
@@ -55,12 +65,13 @@ class OrderFlowIntegrationTest {
         void placeOrderFlow_Success() {
                 // 1. Arrange data using actual seed data (from Flyway V2)
                 // Find existing user from V2__seed_data.sql
-                User testUser = userRepository.findByEmail("user@example.com")
+                User testUser = userRepository.findByEmail("user@myshop.com") // seeded by V2__seed_data.sql
                                 .orElseThrow();
 
-                // Get the active product (Wireless Headphones inside DB)
+                // Any active product with enough stock (the live catalog may be
+                // reseeded from FakeStore, so hardcoded names are unreliable)
                 Product product = productRepository.findAll().stream()
-                                .filter(p -> p.getName().equals("Wireless Headphones"))
+                                .filter(p -> p.isActive() && p.getStockQuantity() >= 2)
                                 .findFirst()
                                 .orElseThrow();
 
@@ -81,20 +92,18 @@ class OrderFlowIntegrationTest {
                 OrderRequest req = new OrderRequest(Collections.singletonMap("city", "TestCity"), "COD");
 
                 // 2. Act
-                orderService.placeOrder(testUser.getEmail(), req);
+                com.myshop.dto.response.OrderResponse placed = orderService.placeOrder(testUser.getEmail(), req);
 
                 // 3. Assert
                 // A) Verify cart is empty
                 Cart verifyCart = cartRepository.findByUserId(testUser.getId()).orElseThrow();
                 assertThat(verifyCart.getItems()).isEmpty();
 
-                // B) Verify Order was created
-                Order verifiedOrder = orderRepository.findAll().stream()
-                                .filter(o -> o.getUser().getId().equals(testUser.getId()))
-                                .findFirst()
-                                .orElseThrow();
+                // B) Verify Order was created (look up the exact order placed —
+                // the live DB may hold older orders for the seeded user)
+                Order verifiedOrder = orderRepository.findById(placed.id()).orElseThrow();
                 assertThat(verifiedOrder.getItems()).hasSize(1);
-                assertThat(verifiedOrder.getStatus()).isEqualTo("PENDING");
+                assertThat(verifiedOrder.getStatus()).isEqualTo(com.myshop.model.enums.OrderStatus.PENDING);
                 assertThat(verifiedOrder.getTotalAmount())
                                 .isEqualByComparingTo(product.getPrice().multiply(new BigDecimal(2)));
 

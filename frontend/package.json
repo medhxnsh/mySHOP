@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@studio-freight/lenis": "^1.0.42",
     "@tailwindcss/postcss": "^4.2.0",
     "@tanstack/react-query": "^5.90.21",
     "axios": "^1.13.5",
