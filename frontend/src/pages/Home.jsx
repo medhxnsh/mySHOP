@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -69,7 +69,7 @@ const Hero = () => (
 )
 
 // ── Marquee Row ───────────────────────────────────────────────
-const MarqueeRow = ({ products, direction = 1, speed = 30, navigate }) => {
+const MarqueeRow = memo(function MarqueeRow({ products, direction = 1, speed = 30, navigate }) {
     const rowRef = useRef(null)
     const animRef = useRef(null)
     const posRef = useRef(0)
@@ -101,7 +101,7 @@ const MarqueeRow = ({ products, direction = 1, speed = 30, navigate }) => {
             onMouseEnter={() => (pausedRef.current = true)}
             onMouseLeave={() => (pausedRef.current = false)}
         >
-            <div ref={rowRef} className="flex gap-4 w-max">
+            <div ref={rowRef} className="flex gap-4 w-max" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
                 {doubled.map((product, i) => (
                     <motion.div
                         key={`${product.id}-${i}`}
@@ -135,7 +135,7 @@ const MarqueeRow = ({ products, direction = 1, speed = 30, navigate }) => {
             </div>
         </div>
     )
-}
+})
 
 // ── Home Page ─────────────────────────────────────────────────
 export default function Home() {
@@ -144,11 +144,15 @@ export default function Home() {
     const { data: products = [] } = useQuery({
         queryKey: ['featured-products'],
         queryFn: () => api.get('/products?page=0&size=12').then(r => r.data.data.content),
+        retry: 1,
+        staleTime: 30_000,
     })
 
     const { data: categories = [] } = useQuery({
         queryKey: ['categories'],
         queryFn: () => api.get('/categories').then(r => r.data.data),
+        retry: 1,
+        staleTime: 30_000,
     })
 
     return (
