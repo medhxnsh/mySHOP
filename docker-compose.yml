@@ -131,6 +131,11 @@ services:
       # Semantic search (Phase 8) — self-hosted embeddings
       EMBEDDING_BASE_URL: http://ollama:11434
       MYSHOP_EMBEDDINGS_BACKFILL: ${MYSHOP_EMBEDDINGS_BACKFILL:-false}
+
+      # Rate limits (Phase 9) — overridable for load testing
+      RATE_LIMIT_AUTH_PER_MIN: ${RATE_LIMIT_AUTH_PER_MIN:-5}
+      RATE_LIMIT_API_PER_MIN: ${RATE_LIMIT_API_PER_MIN:-100}
+      RATE_LIMIT_FLASH_PER_MIN: ${RATE_LIMIT_FLASH_PER_MIN:-5000}
     ports:
       - "${BACKEND_PORT}:8080" # Spring Boot runs on 8080 inside container
     healthcheck:

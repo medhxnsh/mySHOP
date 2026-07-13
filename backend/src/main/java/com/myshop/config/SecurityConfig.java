@@ -124,6 +124,9 @@ public class SecurityConfig {
                         // ADMIN only: All admin endpoints
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
+                        // Public: current flash sale (purchase/poll stay authenticated)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/flash-sales/active").permitAll()
+
                         // Public: Actuator health (Docker healthcheck) + prometheus
                         // (Prometheus scrapes it over the internal Docker network;
                         // in a real production deployment this would be locked to

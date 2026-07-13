@@ -48,6 +48,23 @@ public final class CacheKeys {
     /** Login attempt counter per IP (stricter). TTL: 1 minute. */
     public static final String RATE_LIMIT_AUTH = "rate_limit:auth:%s:%d";
 
+    /** Flash-sale purchase counter per IP (much larger bucket). TTL: 1 minute. */
+    public static final String RATE_LIMIT_FLASH = "rate_limit:flash:%s:%d";
+
+    // ── Flash Sale Keys (Phase 9) ─────────────────────────────────────────────
+
+    /** Remaining flash-sale stock (source of truth while the sale runs). */
+    public static final String FLASH_STOCK = "flash:%s:stock";
+
+    /** Set of userIds who already bought in this sale (one unit per user). */
+    public static final String FLASH_BUYERS = "flash:%s:buyers";
+
+    /**
+     * Sale metadata hash (productId, salePrice) written at activation so the
+     * purchase hot path never reads Postgres.
+     */
+    public static final String FLASH_META = "flash:%s:meta";
+
     // ── Distributed Lock Keys ─────────────────────────────────────────────────
 
     /** Lock key for stock deduction — prevents overselling. TTL: 5 seconds. */

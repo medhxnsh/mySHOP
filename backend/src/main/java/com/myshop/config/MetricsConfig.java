@@ -37,6 +37,16 @@ public class MetricsConfig {
     /** Counter — rows parked after MAX_ATTEMPTS (alert-worthy). */
     public static final String OUTBOX_STUCK = "myshop.outbox.stuck";
 
+    // ── Flash sale metrics (Phase 9) ─────────────────────────────────────────
+    /** Counter — accepted flash purchases (reservation handed to Kafka). */
+    public static final String FLASH_ACCEPTED = "myshop.flash.accepted";
+    /** Counter — rejected flash purchases, tagged {reason}. */
+    public static final String FLASH_REJECTED = "myshop.flash.rejected";
+    /** Timer — hot-path latency (Lua + Kafka hand-off). */
+    public static final String FLASH_PURCHASE_TIMER = "myshop.flash.purchase";
+    /** Counter — reservationless drift detected by the reconciliation job. */
+    public static final String FLASH_DRIFT = "myshop.flash.drift";
+
     // ── AI / Search metrics (Phase 8) ────────────────────────────────────────
     /** Counter — embedding provider failures (search degrades to keyword-only). */
     public static final String EMBEDDING_FAILURES = "myshop.embedding.failures";

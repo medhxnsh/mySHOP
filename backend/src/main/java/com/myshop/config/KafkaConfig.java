@@ -81,6 +81,14 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic orderFlashRequestedTopic() {
+        return TopicBuilder.name(KafkaTopics.ORDER_FLASH_REQUESTED)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public NewTopic notificationDispatchTopic() {
         return TopicBuilder.name(KafkaTopics.NOTIFICATION_DISPATCH)
                 .partitions(3)

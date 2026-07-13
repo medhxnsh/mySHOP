@@ -41,6 +41,26 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     private final RedissonClient redissonClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Limits are configurable (Phase 9): load tests and different deployment
+     * sizes shouldn't require a code change. Defaults preserve the original
+     * hard-coded values.
+     */
+    @org.springframework.beans.factory.annotation.Value("${myshop.rate-limit.auth-per-minute}")
+    private int authPerMinute;
+
+    @org.springframework.beans.factory.annotation.Value("${myshop.rate-limit.api-per-minute}")
+    private int apiPerMinute;
+
+    /**
+     * Flash purchases get their own, much larger bucket: thousands of
+     * legitimate buyers hit the endpoint in the same seconds (and behind one
+     * NAT they share an IP). Abuse is already bounded harder than any IP
+     * limit could — the Lua script allows ONE purchase per authenticated user.
+     */
+    @org.springframework.beans.factory.annotation.Value("${myshop.rate-limit.flash-per-minute}")
+    private int flashPerMinute;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -50,15 +70,20 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
         // Check Auth specific rate limit (stricter)
         if (path.startsWith("/api/v1/auth/")) {
-            if (!isAllowed(CacheKeys.format(CacheKeys.RATE_LIMIT_AUTH, clientIp, getMinuteWindow()), 5)) {
+            if (!isAllowed(CacheKeys.format(CacheKeys.RATE_LIMIT_AUTH, clientIp, getMinuteWindow()), authPerMinute)) {
                 sendRateLimitResponse(response, "Too many authentication attempts. Please try again later.");
                 return;
             }
-        }
-
-        // Check Global API rate limit
-        if (path.startsWith("/api/")) {
-            if (!isAllowed(CacheKeys.format(CacheKeys.RATE_LIMIT_API, clientIp, getMinuteWindow()), 100)) {
+        } else if (path.startsWith("/api/v1/flash-sales/")) {
+            // Dedicated high-throughput bucket for the flash-sale hot path
+            if (!isAllowed(CacheKeys.format(CacheKeys.RATE_LIMIT_FLASH, clientIp, getMinuteWindow()),
+                    flashPerMinute)) {
+                sendRateLimitResponse(response, "Too many flash-sale requests. Please slow down.");
+                return;
+            }
+        } else if (path.startsWith("/api/")) {
+            // Check Global API rate limit
+            if (!isAllowed(CacheKeys.format(CacheKeys.RATE_LIMIT_API, clientIp, getMinuteWindow()), apiPerMinute)) {
                 sendRateLimitResponse(response, "Too many API requests. Please try again later.");
                 return;
             }

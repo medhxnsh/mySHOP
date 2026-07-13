@@ -47,6 +47,12 @@ public final class KafkaTopics {
     /** Published to trigger notification delivery. Key = userId. */
     public static final String NOTIFICATION_DISPATCH = "notification.dispatch";
 
+    /**
+     * Flash-sale reservation accepted on the Redis hot path; consumed by
+     * FlashOrderWorker to create the durable order. Key = saleId.
+     */
+    public static final String ORDER_FLASH_REQUESTED = "order.flash.requested";
+
     // ── Dead Letter Topics ────────────────────────────────────────────────────
     // DLT = Dead Letter Topic. When a consumer fails after max retries,
     // the message is moved here instead of being lost.
@@ -54,5 +60,6 @@ public final class KafkaTopics {
     public static final String ORDER_PLACED_DLT = ORDER_PLACED + ".DLT";
     public static final String INVENTORY_UPDATED_DLT = INVENTORY_UPDATED + ".DLT";
     public static final String PRODUCT_UPDATED_DLT = PRODUCT_UPDATED + ".DLT";
+    public static final String ORDER_FLASH_REQUESTED_DLT = ORDER_FLASH_REQUESTED + ".DLT";
     public static final String NOTIFICATION_DISPATCH_DLT = NOTIFICATION_DISPATCH + ".DLT";
 }

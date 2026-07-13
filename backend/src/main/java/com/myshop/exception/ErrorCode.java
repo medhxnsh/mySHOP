@@ -74,6 +74,13 @@ public enum ErrorCode {
     REVIEW_ALREADY_EXISTS("You have already reviewed this product."),
     REVIEW_NOT_VERIFIED("You can only review products you have purchased."),
 
+    // ── Flash Sale ────────────────────────────────────────────────────────────
+    FLASH_SALE_NOT_FOUND("Flash sale not found."),
+    FLASH_SALE_NOT_ACTIVE("This flash sale is not currently active."),
+    FLASH_SALE_SOLD_OUT("This flash sale is sold out."),
+    FLASH_SALE_ALREADY_PURCHASED("You have already purchased in this flash sale."),
+    FLASH_SALE_INVALID_STATE("The flash sale is in an invalid state for this operation."),
+
     // ── Idempotency ───────────────────────────────────────────────────────────
     IDEMPOTENCY_KEY_REQUIRED("This endpoint requires an Idempotency-Key header."),
     IDEMPOTENCY_CONFLICT("A request with this idempotency key is already being processed."),

@@ -154,8 +154,25 @@ management:
     tags:
       application: myshop
 
+# ── Server tuning ─────────────────────────────────────────────────────────────
+server:
+  tomcat:
+    threads:
+      # Flash-sale bursts put hundreds of concurrent buyers on a very cheap
+      # request path (two Redis calls); the default 200 threads made queue
+      # wait the dominant tail latency at 500 concurrent users (Phase 9).
+      max: ${TOMCAT_MAX_THREADS:400}
+
 # ── mySHOP custom settings ────────────────────────────────────────────────────
 myshop:
+  # Per-IP rate limits (Phase 9: configurable so load tests / bigger
+  # deployments don't need code changes). Flash purchases get a much larger
+  # bucket — abuse is bounded by the one-purchase-per-user Lua check, and
+  # thousands of legit buyers can share a NAT'd IP in the same second.
+  rate-limit:
+    auth-per-minute: ${RATE_LIMIT_AUTH_PER_MIN:5}
+    api-per-minute: ${RATE_LIMIT_API_PER_MIN:100}
+    flash-per-minute: ${RATE_LIMIT_FLASH_PER_MIN:5000}
   embeddings:
     # Self-hosted Ollama (Phase 8). Compose overrides base-url to the
     # `ollama` service; localhost default supports a host-run backend.
