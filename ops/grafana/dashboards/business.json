@@ -1,0 +1,73 @@
+{
+  "uid": "myshop-business",
+  "title": "mySHOP — Business",
+  "tags": ["myshop"],
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Orders placed (total)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(myshop_orders_placed_total)" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Order rate (per minute)",
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(myshop_orders_placed_total[5m])) * 60",
+          "legendFormat": "orders/min"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Checkout latency (placeOrder)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(myshop_checkout_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(myshop_checkout_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(myshop_checkout_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Business-rule rejections by reason",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (code) (rate(myshop_business_errors_total[5m])) * 60",
+          "legendFormat": "{{code}}"
+        }
+      ]
+    }
+  ]
+}

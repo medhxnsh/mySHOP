@@ -120,6 +120,10 @@ services:
       JWT_REFRESH_EXPIRY_MS: ${JWT_REFRESH_EXPIRY_MS}
       SPRING_DATA_MONGODB_URI: mongodb://${MONGO_USERNAME:-mongoadmin}:${MONGO_PASSWORD:-mongopassword}@myshop-mongo:27017/${MONGO_DB:-myshop}?authSource=admin
       KAFKA_BOOTSTRAP_SERVERS: myshop-kafka:9092
+
+      # Observability (Phase 7) — spans go to Tempo's OTLP/HTTP receiver
+      OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
+      TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
     ports:
       - "${BACKEND_PORT}:8080" # Spring Boot runs on 8080 inside container
     healthcheck:
@@ -201,6 +205,50 @@ services:
     networks:
       - myshop-network
 
+  # ── Observability Stack (Phase 7) ──────────────────────────────────────────
+  # Prometheus scrapes /actuator/prometheus; Tempo receives OTLP spans;
+  # Grafana auto-provisions both datasources + the dashboards in ops/grafana/.
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: myshop-prometheus
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - myshop-network
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: myshop-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./ops/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "4318:4318" # OTLP HTTP — exposed so a host-run backend can also trace
+    networks:
+      - myshop-network
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: myshop-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000" # 3000 is taken by the frontend
+    depends_on:
+      - prometheus
+      - tempo
+    networks:
+      - myshop-network
+
 # ── Named Volumes ──────────────────────────────────────────────────────────
 # Docker manages these. Data persists until you explicitly delete volumes.
 # `docker volume ls` to see, `docker volume rm myshop_postgres_data` to delete.
@@ -213,6 +261,12 @@ volumes:
     name: myshop_redis_data
   kafka_data:
     name: myshop_kafka_data
+  prometheus_data:
+    name: myshop_prometheus_data
+  tempo_data:
+    name: myshop_tempo_data
+  grafana_data:
+    name: myshop_grafana_data
 
 # ── Network ────────────────────────────────────────────────────────────────
 # All services share one network for inter-container communication.

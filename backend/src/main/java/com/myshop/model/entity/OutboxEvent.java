@@ -54,6 +54,15 @@ public class OutboxEvent {
     @Column(name = "payload_type", nullable = false)
     private String payloadType;
 
+    /**
+     * W3C traceparent ("00-{traceId}-{spanId}-01") captured when the event was
+     * staged. The relay restores this context before publishing so the Kafka
+     * consumer continues the ORIGINAL request's trace instead of starting a
+     * fresh one on the scheduler thread. Nullable — tracing may be off.
+     */
+    @Column(name = "trace_parent", length = 64)
+    private String traceParent;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

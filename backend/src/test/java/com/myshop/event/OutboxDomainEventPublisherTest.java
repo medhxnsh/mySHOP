@@ -35,7 +35,8 @@ class OutboxDomainEventPublisherTest {
     }
 
     private OutboxDomainEventPublisher publisher() {
-        return new OutboxDomainEventPublisher(outboxEventRepository, new ObjectMapper());
+        return new OutboxDomainEventPublisher(outboxEventRepository, new ObjectMapper(),
+                io.micrometer.tracing.Tracer.NOOP);
     }
 
     @Test

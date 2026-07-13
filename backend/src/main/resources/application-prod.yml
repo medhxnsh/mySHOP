@@ -32,3 +32,7 @@ management:
   endpoint:
     health:
       show-details: never
+  tracing:
+    sampling:
+      # Sample 10% in production — full tracing is dev-only (cost/volume).
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}

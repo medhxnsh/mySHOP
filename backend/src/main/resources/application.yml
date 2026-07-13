@@ -109,14 +109,15 @@ spring:
       fail-on-unknown-properties: false
     default-property-inclusion: NON_NULL
 
-# ── Spring Boot Actuator ──────────────────────────────────────────────────────
+# ── Spring Boot Actuator + Observability (Phase 7) ───────────────────────────
 management:
   endpoints:
     web:
       exposure:
         # Expose only these endpoints over HTTP.
         # Never expose 'env', 'beans', 'mappings' in production (security risk).
-        include: health, info
+        # prometheus/metrics power the Grafana dashboards (ops/grafana/).
+        include: health, info, prometheus, metrics
       base-path: /actuator
   health:
     mongo:
@@ -129,6 +130,29 @@ management:
   info:
     env:
       enabled: true
+  # Distributed tracing — Micrometer Tracing over the OpenTelemetry bridge.
+  tracing:
+    sampling:
+      # Trace every request in dev; the prod profile overrides this to 0.1.
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      # Grafana Tempo's OTLP/HTTP receiver ('tempo' = compose service name;
+      # localhost default lets a host-run backend trace into compose Tempo).
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    distribution:
+      # Publish histogram buckets so Grafana can compute p50/p95/p99 with
+      # histogram_quantile() — plain summaries only give count/sum/max.
+      percentiles-histogram:
+        http.server.requests: true
+        spring.kafka.listener: true
+    tags:
+      application: myshop
 
 # ── Application Info (shown at /actuator/info) ───────────────────────────────
 info:
@@ -148,9 +172,11 @@ logging:
     org.hibernate.type.descriptor.sql: WARN
     # Spring Security — DEBUG shows filter chain execution
     org.springframework.security: WARN
-  # MDC pattern: include requestId in every log line
+  # MDC pattern: requestId is the client-facing correlation id (RequestIdFilter,
+  # echoed in the ApiResponse envelope); traceId/spanId are the internal tracing
+  # ids that also propagate across Kafka hops — both on every line.
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [requestId=%X{requestId}] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [requestId=%X{requestId}] [%X{traceId:-},%X{spanId:-}] %-5level %logger{36} - %msg%n"
 
 # ── JWT Configuration ─────────────────────────────────────────────────────────
 jwt:

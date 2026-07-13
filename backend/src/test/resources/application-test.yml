@@ -25,6 +25,13 @@ jwt:
   expiration-ms: 900000      # 15 minutes
   refresh-expiration-ms: 604800000
 
+# No Tempo in test runs — don't attempt OTLP export (avoids noisy
+# "Failed to export spans" warnings; tracing itself is exercised in the
+# docker-compose smoke test).
+management:
+  tracing:
+    enabled: false
+
 logging:
   level:
     com.myshop: DEBUG

@@ -124,8 +124,12 @@ public class SecurityConfig {
                         // ADMIN only: All admin endpoints
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                        // Public: Actuator health (for Docker healthcheck and monitoring)
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // Public: Actuator health (Docker healthcheck) + prometheus
+                        // (Prometheus scrapes it over the internal Docker network;
+                        // in a real production deployment this would be locked to
+                        // the scraper via network policy or a separate mgmt port)
+                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus")
+                        .permitAll()
 
                         // Public: Swagger UI + OpenAPI spec
                         .requestMatchers(

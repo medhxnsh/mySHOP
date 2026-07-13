@@ -18,11 +18,12 @@ logging:
     org.flywaydb: DEBUG
 
 # Allow actuator endpoints in dev for easier debugging
+# (prometheus feeds the Grafana dashboards — Phase 7)
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, metrics, loggers, flyway
+        include: health, info, metrics, loggers, flyway, prometheus
   endpoint:
     health:
       show-details: always

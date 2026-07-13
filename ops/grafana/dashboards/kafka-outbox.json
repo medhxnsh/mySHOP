@@ -1,0 +1,89 @@
+{
+  "uid": "myshop-kafka",
+  "title": "mySHOP — Kafka & Outbox",
+  "tags": ["myshop"],
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Outbox events delivered (total)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(myshop_outbox_published_total)" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Outbox rows PARKED (needs manual repair)",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(myshop_outbox_stuck_total) or vector(0)" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Outbox delivery rate vs failures (per minute)",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(myshop_outbox_published_total[5m])) * 60",
+          "legendFormat": "delivered/min"
+        },
+        {
+          "refId": "B",
+          "expr": "(sum(rate(myshop_outbox_failures_total[5m])) or vector(0)) * 60",
+          "legendFormat": "failures/min"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Consumer throughput by listener",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (rate(spring_kafka_listener_seconds_count[5m])) * 60",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Consumer processing p95 by listener",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "myshop-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, name) (rate(spring_kafka_listener_seconds_bucket[5m])))",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    }
+  ]
+}

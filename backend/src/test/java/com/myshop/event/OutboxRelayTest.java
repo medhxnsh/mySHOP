@@ -39,7 +39,9 @@ class OutboxRelayTest {
 
     @BeforeEach
     void setUp() {
-        relay = new OutboxRelay(outboxEventRepository, kafkaTemplate, objectMapper);
+        relay = new OutboxRelay(outboxEventRepository, kafkaTemplate, objectMapper,
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+                io.micrometer.tracing.Tracer.NOOP);
     }
 
     private OutboxEvent pendingInventoryEvent() throws Exception {

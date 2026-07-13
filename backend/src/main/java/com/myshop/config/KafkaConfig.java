@@ -106,7 +106,12 @@ public class KafkaConfig {
 
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory());
+        // Phase 7: producer-side observation — Micrometer Tracing injects the
+        // W3C traceparent header into every record, so one traceId follows a
+        // request from HTTP through the outbox relay into Kafka consumers.
+        template.setObservationEnabled(true);
+        return template;
     }
 
     // ========================================================================
@@ -142,6 +147,10 @@ public class KafkaConfig {
         // receipt
         // after successful processing. If it crashes before ack, Kafka redelivers.
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+
+        // Phase 7: consumer-side observation — continues the trace carried in
+        // the record's traceparent header (same traceId as the producing request).
+        factory.getContainerProperties().setObservationEnabled(true);
 
         // 3 Retries then DLT
         // If a message fails 3 times (with 1s interval), it is sent to the Dead Letter

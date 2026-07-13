@@ -1,8 +1,13 @@
 package com.myshop.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myshop.config.MetricsConfig;
 import com.myshop.model.entity.OutboxEvent;
 import com.myshop.repository.jpa.OutboxEventRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.CurrentTraceContext;
+import io.micrometer.tracing.TraceContext;
+import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -47,6 +52,8 @@ public class OutboxRelay {
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
+    private final Tracer tracer;
 
     /**
      * Transactional so the SKIP LOCKED row locks from findBatchForPublish()
@@ -66,9 +73,9 @@ public class OutboxRelay {
                 Object payload = rehydrate(event);
                 // Block for the broker ack: published_at must only be set for
                 // events Kafka has durably accepted.
-                kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), payload)
-                        .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                sendWithRestoredTrace(event, payload);
                 event.setPublishedAt(Instant.now());
+                meterRegistry.counter(MetricsConfig.OUTBOX_PUBLISHED).increment();
                 log.debug("Outbox event {} published to {}", event.getId(), event.getTopic());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -84,7 +91,9 @@ public class OutboxRelay {
 
     private void recordFailure(OutboxEvent event, Exception cause) {
         event.setAttempts(event.getAttempts() + 1);
+        meterRegistry.counter(MetricsConfig.OUTBOX_FAILURES).increment();
         if (event.getAttempts() >= MAX_ATTEMPTS) {
+            meterRegistry.counter(MetricsConfig.OUTBOX_STUCK).increment();
             log.error("Outbox event {} (type={}, topic={}) failed {} times and is now parked "
                     + "for manual repair — reset its attempts column after fixing the cause.",
                     event.getId(), event.getEventType(), event.getTopic(), event.getAttempts(), cause);
@@ -108,5 +117,42 @@ public class OutboxRelay {
         }
         Class<?> clazz = Class.forName(type);
         return objectMapper.readValue(event.getPayload(), clazz);
+    }
+
+    /**
+     * Publish inside the ORIGINAL request's trace context (persisted with the
+     * event as a W3C traceparent). Without this, spans produced on this
+     * scheduler thread start a fresh trace and the Kafka consumer's work never
+     * connects back to the HTTP request that caused it. With it, one traceId
+     * covers HTTP handler → outbox staging → relay send → consumer.
+     */
+    private void sendWithRestoredTrace(OutboxEvent event, Object payload) throws Exception {
+        TraceContext parent = parseTraceParent(event.getTraceParent());
+        if (parent == null) {
+            kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), payload)
+                    .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            return;
+        }
+        try (CurrentTraceContext.Scope ignored = tracer.currentTraceContext().newScope(parent)) {
+            kafkaTemplate.send(event.getTopic(), event.getPartitionKey(), payload)
+                    .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        }
+    }
+
+    /** Parse "00-{32-hex traceId}-{16-hex spanId}-{flags}"; null if absent/malformed. */
+    private TraceContext parseTraceParent(String traceParent) {
+        if (traceParent == null || traceParent.isBlank()) {
+            return null;
+        }
+        String[] parts = traceParent.split("-");
+        if (parts.length != 4 || parts[1].length() != 32 || parts[2].length() != 16) {
+            log.warn("Ignoring malformed traceparent on outbox event: {}", traceParent);
+            return null;
+        }
+        return tracer.traceContextBuilder()
+                .traceId(parts[1])
+                .spanId(parts[2])
+                .sampled(true)
+                .build();
     }
 }

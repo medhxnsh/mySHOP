@@ -1,0 +1,14 @@
+# Dashboard provisioning — loads every JSON in /var/lib/grafana/dashboards
+# (mounted from ops/grafana/dashboards) at startup.
+
+apiVersion: 1
+
+providers:
+  - name: myshop-dashboards
+    folder: mySHOP
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

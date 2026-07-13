@@ -26,6 +26,9 @@ import com.myshop.repository.jpa.CartRepository;
 import com.myshop.repository.jpa.OrderRepository;
 import com.myshop.repository.jpa.ProductRepository;
 import com.myshop.repository.jpa.UserRepository;
+import com.myshop.config.MetricsConfig;
+import io.micrometer.core.annotation.Timed;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -80,7 +83,9 @@ public class OrderService {
      */
     private final DomainEventPublisher domainEventPublisher;
     private final RedisDistributedLockService redisLockService;
+    private final MeterRegistry meterRegistry;
 
+    @Timed(value = MetricsConfig.CHECKOUT_TIMER, histogram = true)
     @Transactional
     public OrderResponse placeOrder(String email, OrderRequest request) {
         User user = userRepository.findByEmail(email)
@@ -202,6 +207,7 @@ public class OrderService {
         cartRepository.save(cart);
 
         log.info("Order {} placed successfully for user {}", savedOrder.getId(), email);
+        meterRegistry.counter(MetricsConfig.ORDERS_PLACED).increment();
 
         // 5. Publish in-JVM domain event -> picked up by OrderEventListener.
         // Published exactly once (an earlier duplicate publish made the listener

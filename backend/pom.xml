@@ -160,6 +160,26 @@
         </dependency>
 
         <!-- ============================================================
+             OBSERVABILITY (Phase 7)
+             - Prometheus registry: exposes /actuator/prometheus for scraping
+             - Micrometer Tracing + OTel bridge: one traceId from the HTTP
+               request through the outbox relay and across Kafka consumers
+             - OTLP exporter: ships spans to Grafana Tempo
+        ============================================================ -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-otlp</artifactId>
+        </dependency>
+
+        <!-- ============================================================
              LOMBOK — Eliminates Java boilerplate at compile time.
              @Data, @Builder, @Slf4j etc. generate getters, setters,
              constructors, and loggers without you writing them.

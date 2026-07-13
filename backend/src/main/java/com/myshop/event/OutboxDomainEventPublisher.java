@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myshop.model.entity.OutboxEvent;
 import com.myshop.repository.jpa.OutboxEventRepository;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,7 @@ public class OutboxDomainEventPublisher implements DomainEventPublisher {
 
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
+    private final Tracer tracer;
 
     @Override
     public void publish(String topic, String partitionKey, String eventType,
@@ -48,10 +51,23 @@ public class OutboxDomainEventPublisher implements DomainEventPublisher {
                 .payloadType(payload.getClass().getName())
                 .aggregateType(aggregateType)
                 .aggregateId(aggregateId)
+                // Persist the current trace context: the relay publishes later on
+                // a scheduler thread, and without this the consumer's trace would
+                // not connect back to the request that caused the event.
+                .traceParent(currentTraceParent())
                 .build();
 
         outboxEventRepository.save(event);
         log.debug("Outbox event staged: type={}, topic={}, aggregate={}/{}",
                 eventType, topic, aggregateType, aggregateId);
+    }
+
+    /** W3C traceparent of the active span, or null when tracing is off. */
+    private String currentTraceParent() {
+        Span span = tracer.currentSpan();
+        if (span == null) {
+            return null;
+        }
+        return "00-" + span.context().traceId() + "-" + span.context().spanId() + "-01";
     }
 }

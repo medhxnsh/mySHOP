@@ -1,6 +1,9 @@
 package com.myshop.exception;
 
+import com.myshop.config.MetricsConfig;
 import com.myshop.dto.response.ApiResponse;
+import io.micrometer.core.instrument.MeterRegistry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -52,7 +55,10 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+        private final MeterRegistry meterRegistry;
 
         /**
          * 404 Not Found — Resource doesn't exist.
@@ -87,6 +93,9 @@ public class GlobalExceptionHandler {
         @ExceptionHandler(BusinessException.class)
         public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException ex) {
                 log.warn("Business rule violation: {}", ex.getErrorCode());
+                // Phase 7: failure-rate-by-reason panel in the business dashboard.
+                meterRegistry.counter(MetricsConfig.BUSINESS_ERRORS,
+                                "code", ex.getErrorCode().name()).increment();
 
                 return ResponseEntity
                                 .status(HttpStatus.UNPROCESSABLE_ENTITY)

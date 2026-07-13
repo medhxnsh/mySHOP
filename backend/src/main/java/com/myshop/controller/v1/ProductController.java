@@ -47,6 +47,7 @@ public class ProductController {
         private final ProductService productService;
         private final org.springframework.cache.CacheManager cacheManager;
         private final StringRedisTemplate redisTemplate;
+        private final io.micrometer.core.instrument.MeterRegistry meterRegistry;
 
         @Operation(summary = "Get all active products (paginated, filterable)")
         @GetMapping
@@ -73,6 +74,9 @@ public class ProductController {
         @GetMapping("/{id}")
         public ResponseEntity<ApiResponse<ProductResponse>> getById(@PathVariable UUID id) {
                 boolean isHit = Boolean.TRUE.equals(redisTemplate.hasKey("products::" + id));
+                // Phase 7: cache hit-ratio panel (myshop_cache_product_total{result=...})
+                meterRegistry.counter(com.myshop.config.MetricsConfig.PRODUCT_CACHE,
+                                "result", isHit ? "hit" : "miss").increment();
                 return ResponseEntity.ok()
                                 .header("X-Cache", isHit ? "HIT" : "MISS")
                                 .body(ApiResponse.success(productService.getById(id)));
