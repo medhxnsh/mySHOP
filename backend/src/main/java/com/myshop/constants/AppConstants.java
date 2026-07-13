@@ -38,8 +38,10 @@ public final class AppConstants {
     // Outbox domain events (Phase 6) — aggregate types
     public static final String AGGREGATE_ORDER = "ORDER";
     public static final String AGGREGATE_INVENTORY = "INVENTORY";
+    public static final String AGGREGATE_PRODUCT = "PRODUCT";
 
     // Outbox domain events (Phase 6) — event types
     public static final String EVENT_ORDER_PLACED = "ORDER_PLACED";
     public static final String EVENT_INVENTORY_UPDATED = "INVENTORY_UPDATED";
+    public static final String EVENT_PRODUCT_UPDATED = "PRODUCT_UPDATED";
 }

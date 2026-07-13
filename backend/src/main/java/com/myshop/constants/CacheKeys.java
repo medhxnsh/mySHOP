@@ -67,6 +67,15 @@ public final class CacheKeys {
     /** Autocomplete suggestions for a prefix. TTL: 30 minutes. */
     public static final String SEARCH_SUGGEST = "search:suggest:%s";
 
+    /**
+     * Cached embedding vector for a (normalized) search query. TTL: 1 hour —
+     * popular queries skip the embedding call entirely.
+     */
+    public static final String SEARCH_QUERY_EMBEDDING = "search:qvec:%s";
+
+    /** Similar-product id list for a product. TTL: 10 minutes. */
+    public static final String SIMILAR_PRODUCTS = "search:similar:%s";
+
     // ── Utility method for formatted keys ────────────────────────────────────
 
     /** Format a key pattern with arguments. */

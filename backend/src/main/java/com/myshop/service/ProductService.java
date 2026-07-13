@@ -1,12 +1,16 @@
 package com.myshop.service;
 
+import com.myshop.constants.AppConstants;
+import com.myshop.constants.KafkaTopics;
 import com.myshop.dto.request.CreateProductRequest;
 import com.myshop.dto.request.UpdateProductRequest;
 import com.myshop.dto.response.PagedResponse;
 import com.myshop.dto.response.ProductResponse;
+import com.myshop.event.DomainEventPublisher;
 import com.myshop.exception.BusinessException;
 import com.myshop.exception.ErrorCode;
 import com.myshop.exception.ResourceNotFoundException;
+import com.myshop.kafka.event.ProductEvent;
 import com.myshop.mapper.ProductMapper;
 import com.myshop.model.entity.Category;
 import com.myshop.model.entity.Product;
@@ -67,6 +71,27 @@ public class ProductService {
         private final CategoryRepository categoryRepository;
         private final ProductMapper productMapper;
         private final ActivityLogService activityLogService;
+        private final DomainEventPublisher domainEventPublisher;
+
+        /**
+         * Stage a product.updated event in the outbox (same transaction as the
+         * write). EmbeddingConsumer refreshes the search embedding from it.
+         */
+        private void publishProductUpdated(Product product) {
+                domainEventPublisher.publish(
+                                KafkaTopics.PRODUCT_UPDATED,
+                                product.getId().toString(),
+                                AppConstants.EVENT_PRODUCT_UPDATED,
+                                ProductEvent.builder()
+                                                .eventId(UUID.randomUUID().toString())
+                                                .productId(product.getId())
+                                                .name(product.getName())
+                                                .description(product.getDescription())
+                                                .active(product.isActive())
+                                                .build(),
+                                AppConstants.AGGREGATE_PRODUCT,
+                                product.getId().toString());
+        }
 
         @Cacheable(value = com.myshop.config.CacheConfig.CACHE_PRODUCTS_PAGED, key = "T(java.util.Objects).hash(#page, #size, #categoryId, #minPrice, #maxPrice, #sortBy, #sortDir)")
         @Transactional(readOnly = true)
@@ -133,6 +158,7 @@ public class ProductService {
 
                 product.setActive(true);
                 Product saved = productRepository.save(product);
+                publishProductUpdated(saved);
                 log.info("Product created: {} (SKU: {})", saved.getName(), saved.getSku());
 
                 return productMapper.toResponse(saved);
@@ -167,6 +193,7 @@ public class ProductService {
                 }
 
                 Product updated = productRepository.save(product);
+                publishProductUpdated(updated);
                 log.info("Product updated: {}", updated.getId());
 
                 return productMapper.toResponse(updated);

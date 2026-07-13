@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import NotificationBell from './NotificationBell'
 import useAuthStore from '../store/authStore'
 import useCartStore from '../store/cartStore'
@@ -8,6 +8,15 @@ export default function Navbar() {
     const { user, clearAuth } = useAuthStore()
     const { itemsCount, fetchCartCount } = useCartStore()
     const navigate = useNavigate()
+    const [searchQuery, setSearchQuery] = useState('')
+
+    const handleSearch = (e) => {
+        e.preventDefault()
+        const q = searchQuery.trim()
+        if (q) {
+            navigate(`/products?q=${encodeURIComponent(q)}`)
+        }
+    }
 
     useEffect(() => {
         if (user && user.role !== 'ADMIN' && user.role !== 'ROLE_ADMIN') {
@@ -27,6 +36,17 @@ export default function Navbar() {
                 <Link to="/" className="text-lg font-semibold tracking-tight text-white hover:text-gray-300 transition-colors duration-300">
                     myShop
                 </Link>
+
+                {/* Semantic search (Phase 8) */}
+                <form onSubmit={handleSearch} className="hidden md:block flex-1 max-w-sm mx-8">
+                    <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search — try 'something warm for winter'"
+                        className="w-full bg-[#141414] border border-gray-800 rounded-full px-4 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 transition-colors"
+                    />
+                </form>
 
                 {/* Navigation Items */}
                 <div className="flex items-center gap-8 text-sm font-medium">

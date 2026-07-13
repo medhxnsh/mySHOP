@@ -65,6 +65,14 @@ public class KafkaConfig {
     }
 
     @Bean
+    public NewTopic productUpdatedTopic() {
+        return TopicBuilder.name(KafkaTopics.PRODUCT_UPDATED)
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
     public NewTopic userActivityTopic() {
         return TopicBuilder.name(KafkaTopics.USER_ACTIVITY)
                 .partitions(3)

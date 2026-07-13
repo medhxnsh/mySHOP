@@ -55,7 +55,10 @@ services:
 
   # ── PostgreSQL Database ────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine # Alpine = smaller image (~200MB vs ~400MB full)
+    # pgvector/pgvector = official postgres:16 + the pgvector extension baked in
+    # (drop-in replacement; existing myshop_postgres_data volume stays compatible).
+    # Powers semantic product search (Phase 8).
+    image: pgvector/pgvector:pg16
     container_name: myshop-postgres
     restart: unless-stopped # Auto-restart if Docker daemon restarts
     environment:
@@ -124,6 +127,10 @@ services:
       # Observability (Phase 7) — spans go to Tempo's OTLP/HTTP receiver
       OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
       TRACING_SAMPLING_PROBABILITY: ${TRACING_SAMPLING_PROBABILITY:-1.0}
+
+      # Semantic search (Phase 8) — self-hosted embeddings
+      EMBEDDING_BASE_URL: http://ollama:11434
+      MYSHOP_EMBEDDINGS_BACKFILL: ${MYSHOP_EMBEDDINGS_BACKFILL:-false}
     ports:
       - "${BACKEND_PORT}:8080" # Spring Boot runs on 8080 inside container
     healthcheck:
@@ -205,6 +212,27 @@ services:
     networks:
       - myshop-network
 
+  # ── Ollama — self-hosted embeddings (Phase 8) ──────────────────────────────
+  # Runs nomic-embed-text locally: semantic search with zero API cost and no
+  # external dependency. The entrypoint pulls the model on first start (~270MB,
+  # cached in the volume afterwards).
+  ollama:
+    image: ollama/ollama:0.9.6
+    container_name: myshop-ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 4 && ollama pull nomic-embed-text && wait"]
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434" # exposed so a host-run backend can embed too
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep -q nomic-embed-text || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - myshop-network
+
   # ── Observability Stack (Phase 7) ──────────────────────────────────────────
   # Prometheus scrapes /actuator/prometheus; Tempo receives OTLP spans;
   # Grafana auto-provisions both datasources + the dashboards in ops/grafana/.
@@ -261,6 +289,8 @@ volumes:
     name: myshop_redis_data
   kafka_data:
     name: myshop_kafka_data
+  ollama_data:
+    name: myshop_ollama_data
   prometheus_data:
     name: myshop_prometheus_data
   tempo_data:

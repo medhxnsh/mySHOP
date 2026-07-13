@@ -35,6 +35,12 @@ public final class KafkaTopics {
     /** Published when product stock quantity changes. Key = productId. */
     public static final String INVENTORY_UPDATED = "inventory.updated";
 
+    /**
+     * Published when a product's content changes (create/update). Key = productId.
+     * Consumed by EmbeddingConsumer to refresh the search embedding (Phase 8).
+     */
+    public static final String PRODUCT_UPDATED = "product.updated";
+
     /** Published for every user action (view, search, click). Key = userId. */
     public static final String USER_ACTIVITY = "user.activity";
 
@@ -47,5 +53,6 @@ public final class KafkaTopics {
 
     public static final String ORDER_PLACED_DLT = ORDER_PLACED + ".DLT";
     public static final String INVENTORY_UPDATED_DLT = INVENTORY_UPDATED + ".DLT";
+    public static final String PRODUCT_UPDATED_DLT = PRODUCT_UPDATED + ".DLT";
     public static final String NOTIFICATION_DISPATCH_DLT = NOTIFICATION_DISPATCH + ".DLT";
 }

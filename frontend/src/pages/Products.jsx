@@ -14,6 +14,17 @@ export default function Products() {
     const [selectedCategoryId, setSelectedCategoryId] = useState(null)
     const [categoryCounts, setCategoryCounts] = useState({})
 
+    // Semantic search query from the navbar (?q=...)
+    const searchQuery = searchParams.get('q') || ''
+
+    // Reset pagination when the query changes — "adjust state during render"
+    // pattern (avoids a cascading-render effect).
+    const [prevQuery, setPrevQuery] = useState(searchQuery)
+    if (prevQuery !== searchQuery) {
+        setPrevQuery(searchQuery)
+        setPage(0)
+    }
+
     // Read categoryId from URL on mount
     useEffect(() => {
         const urlCatId = searchParams.get('categoryId')
@@ -41,11 +52,16 @@ export default function Products() {
             .catch(() => { })
     }, [])
 
-    // Fetch filtered products
+    // Fetch products — hybrid search when a query is present, catalog browse otherwise
     useEffect(() => {
         setLoading(true)
-        let url = `/api/v1/products?page=${page}&size=12&sortBy=${sort}&sortDir=${sortDir}`
-        if (selectedCategoryId) url += `&categoryId=${selectedCategoryId}`
+        let url
+        if (searchQuery) {
+            url = `/api/v1/products/search?q=${encodeURIComponent(searchQuery)}&page=${page}&size=12`
+        } else {
+            url = `/api/v1/products?page=${page}&size=12&sortBy=${sort}&sortDir=${sortDir}`
+            if (selectedCategoryId) url += `&categoryId=${selectedCategoryId}`
+        }
         axios.get(url)
             .then(res => {
                 setProducts(res.data.data.content)
@@ -56,7 +72,7 @@ export default function Products() {
                 console.error('Failed to fetch products', err)
                 setLoading(false)
             })
-    }, [page, sort, sortDir, selectedCategoryId])
+    }, [page, sort, sortDir, selectedCategoryId, searchQuery])
 
     const handleCategoryClick = (catId) => {
         setSelectedCategoryId(catId)
@@ -126,6 +142,19 @@ export default function Products() {
 
             {/* Product Grid */}
             <main className="flex-1">
+                {searchQuery && (
+                    <div className="flex items-center justify-between mb-6">
+                        <p className="text-gray-400 text-sm">
+                            Results for <span className="text-white font-medium">"{searchQuery}"</span>
+                        </p>
+                        <button
+                            onClick={() => setSearchParams({})}
+                            className="text-xs text-gray-500 hover:text-white transition-colors"
+                        >
+                            Clear search ✕
+                        </button>
+                    </div>
+                )}
                 {loading ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[...Array(6)].map((_, i) => (

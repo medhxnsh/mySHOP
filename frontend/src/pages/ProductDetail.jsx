@@ -14,6 +14,7 @@ export default function ProductDetail() {
     const [product, setProduct] = useState(null)
     const [loading, setLoading] = useState(true)
     const [cacheStatus, setCacheStatus] = useState(null)
+    const [similar, setSimilar] = useState([])
 
     useEffect(() => {
         axios.get(`/api/v1/products/${id}`)
@@ -26,6 +27,10 @@ export default function ProductDetail() {
                 console.error('Failed to fetch product', err)
                 setLoading(false)
             })
+        // Vector nearest-neighbours of this product (Phase 8) — rail hides when empty
+        axios.get(`/api/v1/products/${id}/similar?limit=4`)
+            .then(res => setSimilar(res.data.data || []))
+            .catch(() => setSimilar([]))
     }, [id])
 
     if (loading) {
@@ -131,6 +136,29 @@ export default function ProductDetail() {
                     </div>
                 </div>
             </div>
+
+            {/* PHASE 8: semantic similar-products rail (vector nearest-neighbours) */}
+            {similar.length > 0 && (
+                <div className="mt-16">
+                    <h2 className="text-xl font-medium mb-6">Similar products</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {similar.map(p => (
+                            <Link key={p.id} to={`/products/${p.id}`} className="group block">
+                                <div className="aspect-square bg-white border border-gray-800 rounded-lg mb-3 overflow-hidden flex items-center justify-center p-4">
+                                    <img
+                                        src={p.imageUrl || `https://placehold.co/300x300?text=${encodeURIComponent(p.name)}`}
+                                        alt={p.name}
+                                        className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                                        onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/300x300?text=${encodeURIComponent(p.name)}` }}
+                                    />
+                                </div>
+                                <p className="text-sm text-gray-300 group-hover:text-white transition-colors line-clamp-2">{p.name}</p>
+                                <p className="text-sm text-gray-500 mt-1">${p.price?.toFixed(2)}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* PHASE 3 REVIEWS */}
             <ProductReviews productId={product.id} />

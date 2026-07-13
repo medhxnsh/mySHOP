@@ -45,9 +45,38 @@ import java.util.UUID;
 public class ProductController {
 
         private final ProductService productService;
+        private final com.myshop.service.ProductSearchService productSearchService;
         private final org.springframework.cache.CacheManager cacheManager;
         private final StringRedisTemplate redisTemplate;
         private final io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
+        @Operation(summary = "Hybrid product search (semantic + keyword)", description = "Reciprocal Rank Fusion of pgvector cosine similarity and Postgres full-text rank. "
+                        + "Degrades to keyword-only when the embedding service is unavailable.")
+        @GetMapping("/search")
+        public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> search(
+                        @Parameter(description = "Free-text query, e.g. 'something warm for winter'") @RequestParam String q,
+                        @RequestParam(defaultValue = AppConstants.DEFAULT_PAGE_NUMBER) int page,
+                        @RequestParam(defaultValue = AppConstants.DEFAULT_PAGE_SIZE_STR) int size) {
+                if (q.isBlank()) {
+                        return ResponseEntity.ok(ApiResponse.success(
+                                        PagedResponse.<ProductResponse>builder()
+                                                        .content(java.util.List.of())
+                                                        .page(page).size(size)
+                                                        .totalElements(0).totalPages(0).last(true)
+                                                        .build()));
+                }
+                return ResponseEntity.ok(ApiResponse.success(
+                                productSearchService.search(q, page, Math.min(size, AppConstants.MAX_PAGE_SIZE))));
+        }
+
+        @Operation(summary = "Similar products (vector nearest-neighbours of this product)")
+        @GetMapping("/{id}/similar")
+        public ResponseEntity<ApiResponse<java.util.List<ProductResponse>>> similar(
+                        @PathVariable UUID id,
+                        @RequestParam(defaultValue = "8") int limit) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                productSearchService.findSimilar(id, Math.min(limit, 24))));
+        }
 
         @Operation(summary = "Get all active products (paginated, filterable)")
         @GetMapping

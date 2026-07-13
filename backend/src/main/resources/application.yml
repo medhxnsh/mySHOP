@@ -154,6 +154,17 @@ management:
     tags:
       application: myshop
 
+# ── mySHOP custom settings ────────────────────────────────────────────────────
+myshop:
+  embeddings:
+    # Self-hosted Ollama (Phase 8). Compose overrides base-url to the
+    # `ollama` service; localhost default supports a host-run backend.
+    base-url: ${EMBEDDING_BASE_URL:http://localhost:11434}
+    model: ${EMBEDDING_MODEL:nomic-embed-text}
+    # One-shot backfill of embeddings for products created before Phase 8:
+    # run once with MYSHOP_EMBEDDINGS_BACKFILL=true, then turn it back off.
+    backfill: ${MYSHOP_EMBEDDINGS_BACKFILL:false}
+
 # ── Application Info (shown at /actuator/info) ───────────────────────────────
 info:
   app:

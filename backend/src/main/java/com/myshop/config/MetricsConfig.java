@@ -37,6 +37,12 @@ public class MetricsConfig {
     /** Counter — rows parked after MAX_ATTEMPTS (alert-worthy). */
     public static final String OUTBOX_STUCK = "myshop.outbox.stuck";
 
+    // ── AI / Search metrics (Phase 8) ────────────────────────────────────────
+    /** Counter — embedding provider failures (search degrades to keyword-only). */
+    public static final String EMBEDDING_FAILURES = "myshop.embedding.failures";
+    /** Counter — product searches, tagged {mode="hybrid"|"keyword"}. */
+    public static final String SEARCHES = "myshop.search.requests";
+
     // ── Cache metrics ────────────────────────────────────────────────────────
     /** Counter — product cache lookups, tagged {result="hit"|"miss"}. */
     public static final String PRODUCT_CACHE = "myshop.cache.product";
