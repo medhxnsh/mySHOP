@@ -53,6 +53,9 @@ public class MetricsConfig {
     /** Counter — product searches, tagged {mode="hybrid"|"keyword"}. */
     public static final String SEARCHES = "myshop.search.requests";
 
+    /** Counter — recommendation requests, tagged {strategy} (Phase 10). */
+    public static final String RECOMMENDATIONS = "myshop.recommendations.requests";
+
     // ── Cache metrics ────────────────────────────────────────────────────────
     /** Counter — product cache lookups, tagged {result="hit"|"miss"}. */
     public static final String PRODUCT_CACHE = "myshop.cache.product";

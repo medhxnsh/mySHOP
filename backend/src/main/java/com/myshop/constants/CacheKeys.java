@@ -93,6 +93,9 @@ public final class CacheKeys {
     /** Similar-product id list for a product. TTL: 10 minutes. */
     public static final String SIMILAR_PRODUCTS = "search:similar:%s";
 
+    /** Recommendation payload per user (or "anon"). TTL: 15 minutes. */
+    public static final String RECOMMENDATIONS = "rec:%s";
+
     // ── Utility method for formatted keys ────────────────────────────────────
 
     /** Format a key pattern with arguments. */

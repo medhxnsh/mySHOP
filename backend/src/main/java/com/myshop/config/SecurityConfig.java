@@ -127,6 +127,10 @@ public class SecurityConfig {
                         // Public: current flash sale (purchase/poll stay authenticated)
                         .requestMatchers(HttpMethod.GET, "/api/v1/flash-sales/active").permitAll()
 
+                        // Public: recommendations (anonymous visitors get the
+                        // popularity fallback; authenticated get personalized)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/recommendations").permitAll()
+
                         // Public: Actuator health (Docker healthcheck) + prometheus
                         // (Prometheus scrapes it over the internal Docker network;
                         // in a real production deployment this would be locked to

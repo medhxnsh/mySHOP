@@ -32,6 +32,7 @@ public class CartService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final CartMapper cartMapper;
+    private final ActivityLogService activityLogService;
 
     @Transactional
     public CartResponse getCartByUser(String email) {
@@ -79,6 +80,10 @@ public class CartService {
         }
 
         Cart savedCart = cartRepository.save(cart);
+
+        // Phase 10: cart-add is a strong personalization signal (async, non-blocking)
+        activityLogService.logActivity(email, "CART_ADD", "PRODUCT", product.getId().toString());
+
         return cartMapper.toResponse(savedCart);
     }
 

@@ -112,6 +112,55 @@ public class ProductSearchRepository {
                 UUID.class, limit);
     }
 
+    /** A product's stored vector (Phase 10: profile building), or null. */
+    public float[] getEmbedding(UUID productId) {
+        List<String> rows = jdbcTemplate.queryForList(
+                "SELECT embedding::text FROM products WHERE id = ? AND embedding IS NOT NULL",
+                String.class, productId);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        return parseVectorLiteral(rows.get(0));
+    }
+
+    /**
+     * Nearest active products to an ARBITRARY vector (Phase 10: a user's
+     * profile vector), excluding the given product ids (already purchased).
+     */
+    public List<ProductSearchHit> findNearestToVector(float[] vector, List<UUID> excludeIds, int limit) {
+        String exclusion = excludeIds.isEmpty() ? ""
+                : "AND id NOT IN (" + String.join(",", java.util.Collections.nCopies(excludeIds.size(), "?")) + ")";
+        String sql = """
+                SELECT id, 1 - (embedding <=> CAST(? AS vector)) AS score
+                FROM products
+                WHERE is_active = true AND embedding IS NOT NULL %s
+                ORDER BY embedding <=> CAST(? AS vector)
+                LIMIT ?
+                """.formatted(exclusion);
+
+        Object[] params = new Object[3 + excludeIds.size()];
+        String literal = toVectorLiteral(vector);
+        params[0] = literal;
+        for (int i = 0; i < excludeIds.size(); i++) {
+            params[1 + i] = excludeIds.get(i);
+        }
+        params[1 + excludeIds.size()] = literal;
+        params[2 + excludeIds.size()] = limit;
+
+        return jdbcTemplate.query(sql,
+                (rs, i) -> new ProductSearchHit(rs.getObject("id", UUID.class), rs.getDouble("score")),
+                params);
+    }
+
+    private float[] parseVectorLiteral(String literal) {
+        String[] parts = literal.substring(1, literal.length() - 1).split(",");
+        float[] vector = new float[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            vector[i] = Float.parseFloat(parts[i]);
+        }
+        return vector;
+    }
+
     /** pgvector text literal: "[0.1,0.2,...]" */
     private String toVectorLiteral(float[] vector) {
         StringBuilder sb = new StringBuilder("[");
